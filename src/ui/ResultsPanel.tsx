@@ -24,7 +24,8 @@ export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
 
   return (
     <div className="panel results-panel">
-      <article className="newspaper">
+      <article className="newspaper grit-grain">
+        <span className="newspaper-stamp" aria-hidden="true" />
         <header className="masthead">
           <span className="masthead-title">THE DIVE TIMES</span>
           <span className="masthead-day">Day {report.day}</span>
