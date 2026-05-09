@@ -72,17 +72,20 @@ src/
 
 ## Where we are
 
-- Slices 1–7 of the backlog are shipped. Slice 7 added persistent named
-  regulars (Wheezer / Rook / Mike / Doc) — per-regular loyalty in
-  `GameState.regulars`, picked over anonymous archetype spawns 60% of
-  the time when eligible (loyalty ≥ 0); +1/-3 on serve/walkout via
-  `applyReport`; save format bumped v1 → v2 with forward migration.
-  Newspaper names them. Planning panel has a roster with portraits and
-  a loyalty meter.
-- Next up is **Slice 8 — Action bar / crisis decisions** (B6):
-  interactive shift decisions (POUR / CUT OFF / 86 HIM / RING UP /
-  DOOR), `runShift` evolves to two-phase replay so the simulator stays
-  pure. See `docs/BACKLOG.md`.
+- Slices 1–7 + 8a are shipped. Slice 8a added the screenshot's HUD
+  chrome — top chalkboard (`SHIFT NN / DAY · phase · clock`), bottom
+  TILL/TIME/HEAT/DAMAGE status strip (HEAT and DAMAGE are stubs until
+  Slice 8b), bartender dialogue line, and a 5-button action bar (POUR
+  / CUT OFF / 86 HIM / RING UP / DOOR, all disabled until Slice 8c).
+  Phaser scene now seats named regulars at fixed bar-stool slots and
+  flashes a brief speech bubble on arrival. The shift log is hidden
+  behind a `<details>` summary now that the HUD is the focus.
+- Next up:
+  - **Slice 8b — HEAT + DAMAGE in the sim.** Wire the stub HUD values
+    to real sim concepts (rowdiness rises with mishaps, decays with
+    serves; damage entries get an `item` field).
+  - **Slice 8c — Active action bar (B6).** `runShift` evolves to
+    two-phase replay so the player can intervene at decision points.
 
 ## Don't
 

@@ -55,9 +55,17 @@ week-long arc rather than a 3-min run.
   last-seen-day, and a loyalty meter. 5 new tests (spawn gating,
   loyalty deltas via applyReport, customerDisplayName surface, plus 2
   save-migration tests in `save.test.ts`).
-- ⏳ **Slice 8 — Action bar / crisis decisions (B6).** *Next up.*
-  Interactive shift decisions (POUR / CUT OFF / 86 HIM / RING UP /
-  DOOR), `runShift` evolves to two-phase replay so it stays pure.
+- ✅ **Slice 8a — HUD chrome + multi-stool seating.** Top chalkboard
+  HUD (`SHIFT NN / DAY · phase · clock`), bottom status strip
+  (TILL / TIME / HEAT / DAMAGE — heat & damage are stubs), Marv
+  bartender dialogue line above a 5-button action bar (POUR / CUT OFF
+  / 86 HIM / RING UP / DOOR, all disabled with `[1]..[5]` keyboard
+  hints). Phaser scene gains fixed bar-stool seating for named
+  regulars + brief arrival speech bubbles per archetype.
+- ⏳ **Slice 8b — HEAT + DAMAGE in the simulator.** *Next up.* Wire
+  the stub HUD values to real sim concepts so they tell the truth.
+- ⏳ **Slice 8c — Active action bar / crisis decisions (B6).**
+  `runShift` evolves to two-phase replay so the player can intervene.
 
 ## Suggested first 5 slices
 

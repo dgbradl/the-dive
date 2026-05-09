@@ -27,7 +27,20 @@ interface CustomerSprite {
   nameLabel?: Phaser.GameObjects.Text;
   archetypeId: string;
   regularId?: string;
+  /** When set, the sprite occupies a fixed bar-stool slot (0..STOOLS-1). */
+  stool?: number;
 }
+
+const STOOLS = 5;
+
+const ARRIVAL_BUBBLES: Record<string, string> = {
+  dive_regular: 'Same as always.',
+  lost_tourist: 'What’s good?',
+  rowdy_college_kid: 'BUDS!',
+  date_night_couple: 'Two of those.',
+  yelp_reviewer: 'Mind a photo?',
+  wedding_party: 'OPEN BAR?!',
+};
 
 export class BarScene extends Phaser.Scene {
   private waiting: CustomerSprite[] = [];
@@ -141,20 +154,24 @@ export class BarScene extends Phaser.Scene {
     const archetypeId = entry.customerArchetypeId;
     const arch = archetypeId ? catalog.customerArchetypes.find((a) => a.id === archetypeId) : undefined;
 
+    // Named regulars take a fixed bar-stool slot; anonymous customers
+    // queue along the floor above the counter.
+    const stool = entry.regularId ? this.firstFreeStool() : undefined;
     const startX = this.viewW * 0.07;
-    const y = this.viewH * 0.55;
+    const targetH = this.viewH * 0.18;
+    const isSeated = stool !== undefined;
+    const y = isSeated ? this.stoolY() : this.viewH * 0.55;
 
     const image = this.add.image(startX, y, this.spriteKey(archetypeId)).setOrigin(0.5, 1);
-    const targetH = this.viewH * 0.18;
     image.setScale(targetH / image.height);
 
     let nameLabel: Phaser.GameObjects.Text | undefined;
     if (entry.regularId && entry.customerDisplayName) {
-      nameLabel = this.add.text(startX, y - targetH - 4, entry.customerDisplayName.toUpperCase(), {
+      nameLabel = this.add.text(startX, y + 6, entry.customerDisplayName.toUpperCase(), {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '8px',
         color: COLORS.amber,
-      }).setOrigin(0.5, 1);
+      }).setOrigin(0.5, 0);
     }
 
     const sprite: CustomerSprite = {
@@ -162,14 +179,42 @@ export class BarScene extends Phaser.Scene {
       nameLabel,
       archetypeId: arch?.id ?? 'unknown',
       regularId: entry.regularId,
+      stool,
     };
     this.waiting.push(sprite);
 
-    const targetX = this.queueX(this.waiting.length - 1);
+    const targetX =
+      stool !== undefined
+        ? this.stoolX(stool)
+        : this.queueX(this.queueOnlyCount() - 1);
     this.tweens.add({ targets: image, x: targetX, duration: 350, ease: 'Sine.easeOut' });
     if (nameLabel) {
       this.tweens.add({ targets: nameLabel, x: targetX, duration: 350, ease: 'Sine.easeOut' });
     }
+
+    // Brief speech bubble above their head.
+    const bubbleText = ARRIVAL_BUBBLES[arch?.id ?? ''];
+    if (bubbleText) {
+      this.flashBubble(targetX, y - targetH - 6, bubbleText);
+    }
+  }
+
+  private flashBubble(x: number, y: number, text: string) {
+    const bubble = this.add.text(x, y, text, {
+      fontFamily: '"VT323", monospace',
+      fontSize: '14px',
+      color: '#1a120a',
+      backgroundColor: '#e8dcb8',
+      padding: { left: 6, right: 6, top: 2, bottom: 2 },
+    }).setOrigin(0.5, 1).setAlpha(0);
+    this.tweens.add({ targets: bubble, alpha: 1, duration: 200 });
+    this.tweens.add({
+      targets: bubble,
+      alpha: 0,
+      delay: 1400,
+      duration: 300,
+      onComplete: () => bubble.destroy(),
+    });
   }
 
   private serveCustomer(entry: ShiftEntry) {
@@ -240,12 +285,35 @@ export class BarScene extends Phaser.Scene {
     return left + slot * Math.min(index, 5);
   }
 
+  private stoolX(slot: number): number {
+    const left = this.viewW * 0.18;
+    const right = this.viewW * 0.88;
+    const span = right - left;
+    return left + (span / (STOOLS - 1)) * slot;
+  }
+
+  private stoolY(): number {
+    return this.viewH * 0.68;
+  }
+
+  private firstFreeStool(): number | undefined {
+    const taken = new Set<number>();
+    for (const c of this.waiting) if (c.stool !== undefined) taken.add(c.stool);
+    for (let i = 0; i < STOOLS; i++) if (!taken.has(i)) return i;
+    return undefined; // all stools full → fall back to queue
+  }
+
+  private queueOnlyCount(): number {
+    return this.waiting.filter((c) => c.stool === undefined).length;
+  }
+
   private repackQueue() {
-    for (let i = 0; i < this.waiting.length; i++) {
-      const x = this.queueX(i);
-      this.tweens.add({ targets: this.waiting[i].image, x, duration: 220, ease: 'Sine.easeOut' });
-      const label = this.waiting[i].nameLabel;
-      if (label) this.tweens.add({ targets: label, x, duration: 220, ease: 'Sine.easeOut' });
+    let qi = 0;
+    for (const c of this.waiting) {
+      if (c.stool !== undefined) continue;
+      const x = this.queueX(qi++);
+      this.tweens.add({ targets: c.image, x, duration: 220, ease: 'Sine.easeOut' });
+      if (c.nameLabel) this.tweens.add({ targets: c.nameLabel, x, duration: 220, ease: 'Sine.easeOut' });
     }
   }
 
