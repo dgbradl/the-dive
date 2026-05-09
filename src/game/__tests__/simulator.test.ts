@@ -398,23 +398,37 @@ describe('staff traits', () => {
     expect(next.heat).toBeCloseTo(2.5, 5);
   });
 
-  it('emits at most one heat-threshold Decision per shift, when heat crosses 3.5', () => {
-    const noStaff = fixture([]); // walkouts pile up → heat surely crosses
+  it('emits at most 2 Decisions per shift; default option is always POUR', () => {
+    const noStaff = fixture([]); // walkouts + mishaps drive triggers
     let totalDecisions = 0;
     let trialsWithDecision = 0;
     for (let seed = 0; seed < 30; seed++) {
       const r = runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 90000 + seed);
       const decisionEntries = r.entries.filter((e) => e.kind === 'Decision');
-      expect(decisionEntries.length).toBeLessThanOrEqual(1);
+      expect(decisionEntries.length).toBeLessThanOrEqual(2);
       totalDecisions += decisionEntries.length;
       if (decisionEntries.length > 0) {
         trialsWithDecision++;
-        const decision = r.decisions[decisionEntries[0].decisionIndex!];
-        expect(decision.options.some((o) => o.key === 'pour' && o.isDefault)).toBe(true);
+        for (const de of decisionEntries) {
+          const decision = r.decisions[de.decisionIndex!];
+          expect(decision.options.some((o) => o.key === 'pour' && o.isDefault)).toBe(true);
+        }
       }
     }
-    expect(totalDecisions).toBeGreaterThan(0); // at least one trial fired
+    expect(totalDecisions).toBeGreaterThan(0);
     expect(trialsWithDecision).toBeGreaterThan(0);
+  });
+
+  it('decisions surface even in normal staffed play', () => {
+    const s = freshState(); // Marv at the bar by default
+    let trialsWithDecision = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const r = runShift(s, defaultShiftConfig, catalog, 95000 + seed);
+      if (r.decisions.length > 0) trialsWithDecision++;
+    }
+    // With a normal staffed shift we should hit a decision in a fair share
+    // of trials — not every one (that would be exhausting), but most.
+    expect(trialsWithDecision).toBeGreaterThan(15);
   });
 
   it('86 Him option requires a bouncer on the door', () => {

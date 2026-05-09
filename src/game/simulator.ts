@@ -18,7 +18,9 @@ import {
   type StaffTrait,
 } from './types';
 
-const HEAT_DECISION_THRESHOLD = 3.5;
+const HEAT_DECISION_THRESHOLD = 2.0;
+const MAX_DECISIONS_PER_SHIFT = 2;
+const DECISION_COOLDOWN_TICKS = 5;
 
 /** Chance of using a named regular when one is eligible for the spawning archetype. */
 const REGULAR_PICK_CHANCE = 0.6;
@@ -172,7 +174,7 @@ export function runShift(
   };
 
   let heat = clampHeat(state.heat);
-  let heatDecisionEmitted = false;
+  let lastDecisionTick = -DECISION_COOLDOWN_TICKS;
 
   /** Push an entry onto the report, stamping it with the current heat reading. */
   const addE = (e: Omit<ShiftEntry, 'heatAfter'>) => {
@@ -187,15 +189,27 @@ export function runShift(
     return gates;
   };
 
-  const buildHeatDecision = (tick: number): { entry: Omit<ShiftEntry, 'heatAfter'>; pending: PendingDecision } => {
+  type DecisionKind = 'heat' | 'mishap';
+
+  const buildDecision = (
+    tick: number,
+    kind: DecisionKind,
+    customerName?: string,
+  ): { entry: Omit<ShiftEntry, 'heatAfter'>; pending: PendingDecision } => {
     const gates = computeGates();
+    const subject = customerName ?? 'the rowdy';
+    const prompt = kind === 'mishap'
+      ? `${customerName ?? 'A customer'} is making a scene — what’s the call?`
+      : 'Rowdy at the bar — what’s the call?';
     const options: DecisionOption[] = [
       {
         key: 'pour',
         label: 'Pour',
         cashDelta: 0,
         repDelta: 0,
-        narrative: 'Marv keeps pouring. Watch the rowdy.',
+        narrative: kind === 'mishap'
+          ? `Marv shrugs it off and keeps pouring. ${subject} settles down on their own.`
+          : 'Marv keeps pouring. Watch the rowdy.',
         isDefault: true,
       },
       {
@@ -204,7 +218,7 @@ export function runShift(
         cashDelta: 0,
         repDelta: 0,
         heatDelta: -1.5,
-        narrative: 'Cut off — they grumble, finish their beer, and leave.',
+        narrative: `Cut off — ${subject} grumbles, finishes their beer, and leaves.`,
       },
       {
         key: 'eighty-six',
@@ -213,35 +227,49 @@ export function runShift(
         cashDelta: 0,
         repDelta: -1,
         heatDelta: -2,
-        narrative: 'Bouncer walks them out — heat drops, room exhales.',
+        narrative: `Bouncer walks ${subject} out — heat drops, room exhales.`,
       },
     ];
-    const idx = report.entries.length; // entry inserted next
+    const idx = report.entries.length;
     return {
       entry: {
         tick,
         kind: 'Decision',
-        text: 'Marv: Rowdy at the bar — what’s the call?',
+        text: `Marv: ${prompt}`,
         cashDelta: 0,
         repDelta: 0,
         decisionIndex: report.decisions.length,
       },
       pending: {
         entryIndex: idx,
-        prompt: 'Rowdy at the bar — what’s the call?',
+        prompt,
         options,
         satisfiedGates: gates,
       },
     };
   };
 
+  const decisionsAvailable = (tick: number): boolean => {
+    if (report.decisions.length >= MAX_DECISIONS_PER_SHIFT) return false;
+    if (tick - lastDecisionTick < DECISION_COOLDOWN_TICKS) return false;
+    return true;
+  };
+
   const maybeEmitHeatDecision = (tick: number) => {
-    if (heatDecisionEmitted) return;
+    if (!decisionsAvailable(tick)) return;
     if (heat < HEAT_DECISION_THRESHOLD) return;
-    const { entry, pending } = buildHeatDecision(tick);
+    const { entry, pending } = buildDecision(tick, 'heat');
     addE(entry);
     report.decisions.push(pending);
-    heatDecisionEmitted = true;
+    lastDecisionTick = tick;
+  };
+
+  const maybeEmitMishapDecision = (tick: number, customerName: string) => {
+    if (!decisionsAvailable(tick)) return;
+    const { entry, pending } = buildDecision(tick, 'mishap', customerName);
+    addE(entry);
+    report.decisions.push(pending);
+    lastDecisionTick = tick;
   };
 
   const archetypeHeat = (archetypeId?: string): number => {
@@ -438,6 +466,7 @@ export function runShift(
           customerDisplayName: customerName,
           damageItem: item,
         });
+        maybeEmitMishapDecision(tick, customerName);
       }
 
       // Klutz: per Klutz on floor, chance to drop a tray after this serve.
