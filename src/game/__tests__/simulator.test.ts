@@ -124,6 +124,7 @@ function fixture(spec: StaffSpec[]): { state: GameState; catalog: GameCatalog } 
     assignments,
     nightlySpecialDrinkId: null,
     regulars: [],
+    heat: 0,
   };
   return { state, catalog: testCatalog };
 }
@@ -314,6 +315,8 @@ describe('staff traits', () => {
         { tick: 1, kind: 'Served', text: 'served Otto', cashDelta: 5, repDelta: 0, regularId: 'reg_test_otto' },
         { tick: 5, kind: 'Walkout', text: 'sam walks', cashDelta: 0, repDelta: -1, regularId: 'reg_test_sam' },
       ],
+      heatAtClose: 0,
+      damages: [],
     };
     s.day = 5;
     const { state: next } = applyReport(s, report);
@@ -342,6 +345,56 @@ describe('staff traits', () => {
       }
     }
     expect(foundNamed).toBe(true);
+  });
+
+  it('mishap entries record an itemized damage record', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    let sawDamage = false;
+    let totalDamageEntries = 0;
+    for (let seed = 0; seed < 80 && !sawDamage; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 60000 + seed);
+      for (const e of r.entries) {
+        if (e.kind === 'Mishap' && e.damageItem) sawDamage = true;
+      }
+      totalDamageEntries += r.damages.length;
+    }
+    expect(sawDamage).toBe(true);
+    expect(totalDamageEntries).toBeGreaterThan(0);
+  });
+
+  it('heat builds with mishaps and walkouts (no service)', () => {
+    const noStaff = fixture([]); // no bartender → walkouts pile up, no serves to calm
+    let totalHeat = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const r = runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 70000 + seed);
+      totalHeat += r.heatAtClose;
+    }
+    expect(totalHeat).toBeGreaterThan(0);
+  });
+
+  it('heat is calmer when the bar is well-staffed', () => {
+    const noStaff = fixture([]);
+    const staffed = fixture([{ traits: ['Quick'], station: Station.Bar }]);
+    let unstaffedHeat = 0;
+    let staffedHeat = 0;
+    for (let seed = 0; seed < 60; seed++) {
+      unstaffedHeat += runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 80000 + seed).heatAtClose;
+      staffedHeat += runShift(staffed.state, defaultShiftConfig, staffed.catalog, 80000 + seed).heatAtClose;
+    }
+    expect(staffedHeat).toBeLessThan(unstaffedHeat);
+  });
+
+  it('applyReport carries heat overnight with decay and clears damages from state', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.heat = 3.0;
+    const dummyReport: ShiftReport = {
+      day: 1, seed: 1, cashDelta: 0, repDelta: 0,
+      customersServed: 0, customersLost: 0, wagesPaid: 0,
+      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }],
+    };
+    const { state: next } = applyReport(f.state, dummyReport);
+    // Overnight decay is 1.5 → 4.0 - 1.5 = 2.5, clamped to [0, 5].
+    expect(next.heat).toBeCloseTo(2.5, 5);
   });
 
   it('Charming on Door reduces avg crisis cash penalty', () => {

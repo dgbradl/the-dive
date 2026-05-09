@@ -62,10 +62,18 @@ week-long arc rather than a 3-min run.
   / 86 HIM / RING UP / DOOR, all disabled with `[1]..[5]` keyboard
   hints). Phaser scene gains fixed bar-stool seating for named
   regulars + brief arrival speech bubbles per archetype.
-- ⏳ **Slice 8b — HEAT + DAMAGE in the simulator.** *Next up.* Wire
-  the stub HUD values to real sim concepts so they tell the truth.
+- ✅ **Slice 8b — HEAT + DAMAGE in the simulator.** Heat (0..5)
+  rises with rowdy/wedding arrivals, mishaps, and walkouts; calmed by
+  serves; passive per-tick decay; persists overnight (with overnight
+  decay) on `GameState.heat`. Mishap entries get a `damageItem` and
+  contribute itemized records to `report.damages`. Each ShiftEntry
+  carries `heatAfter` so the HUD samples the running level. The
+  status strip now shows real heat pips + dollar damage with item
+  list. 4 new tests (damage itemization, heat builds without staff,
+  heat is calmer when staffed, applyReport overnight decay).
 - ⏳ **Slice 8c — Active action bar / crisis decisions (B6).**
-  `runShift` evolves to two-phase replay so the player can intervene.
+  *Next up.* `runShift` evolves to two-phase replay so the player
+  can intervene at decision points.
 
 ## Suggested first 5 slices
 

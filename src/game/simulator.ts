@@ -18,6 +18,37 @@ import {
 /** Chance of using a named regular when one is eligible for the spawning archetype. */
 const REGULAR_PICK_CHANCE = 0.6;
 
+/** Heat tuning constants. */
+const HEAT = {
+  // Per-archetype heat contribution per arrival.
+  rowdyArrival: 0.6,
+  weddingArrival: 0.4,
+  defaultArrival: 0.05,
+  // Per Mishap entry.
+  perMishap: 0.6,
+  // Per Walkout (frustrated customers raise tension).
+  perWalkout: 0.2,
+  // Per Served (calming effect — bartender keeping it together).
+  perServe: -0.08,
+  // Passive decay per tick on top of event-driven changes.
+  perTickDecay: 0.05,
+  // Overnight decay (applied in applyReport).
+  overnightDecay: 1.5,
+};
+
+/** Items that get damaged in a Mishap. Picked deterministically by rng. */
+const DAMAGE_ITEMS = [
+  'busted glass',
+  'cracked stool',
+  'spilled tray',
+  'broken bottle',
+  'torn upholstery',
+];
+
+function clampHeat(h: number): number {
+  return Math.max(0, Math.min(5, h));
+}
+
 function phaseForTick(tick: number, tickCount: number): ShiftPhase {
   const earlyEnd = Math.max(1, Math.floor(tickCount * 0.3));
   const primeEnd = Math.max(earlyEnd + 1, Math.floor(tickCount * 0.7));
@@ -130,6 +161,21 @@ export function runShift(
     customersLost: 0,
     wagesPaid: 0,
     entries: [],
+    heatAtClose: 0,
+    damages: [],
+  };
+
+  let heat = clampHeat(state.heat);
+
+  /** Push an entry onto the report, stamping it with the current heat reading. */
+  const addE = (e: Omit<ShiftEntry, 'heatAfter'>) => {
+    addEntry(report, { ...e, heatAfter: heat });
+  };
+
+  const archetypeHeat = (archetypeId?: string): number => {
+    if (archetypeId === 'rowdy_college_kid') return HEAT.rowdyArrival;
+    if (archetypeId === 'wedding_party') return HEAT.weddingArrival;
+    return HEAT.defaultArrival;
   };
 
   const rng = new Rng(seed);
@@ -168,7 +214,7 @@ export function runShift(
     passiveRep += up.repPerShift;
   }
   if (passiveRep !== 0) {
-    addEntry(report, {
+    addE({
       tick: 0,
       kind: 'Note',
       text: `Atmosphere boost: +${passiveRep} rep`,
@@ -197,6 +243,9 @@ export function runShift(
 
   let prevPhase: ShiftPhase | null = null;
   for (let tick = 1; tick <= config.tickCount; tick++) {
+    // Passive per-tick heat decay.
+    heat = clampHeat(heat - HEAT.perTickDecay);
+
     const phase = phaseForTick(tick, config.tickCount);
     if (phase !== prevPhase) {
       const text =
@@ -205,7 +254,7 @@ export function runShift(
           : phase === 'Prime'
             ? 'Prime time. The bar fills up.'
             : 'Last call. The night gets rowdy.';
-      addEntry(report, { tick, kind: 'Note', text, cashDelta: 0, repDelta: 0, phase });
+      addE({ tick, kind: 'Note', text, cashDelta: 0, repDelta: 0, phase });
       prevPhase = phase;
     }
 
@@ -222,7 +271,8 @@ export function runShift(
         }
         waiting.push({ archetype: arch, patienceLeft: arch.patienceTicks + patienceBonus, regular });
         const arrivalName = regular ? regular.displayName : arch.displayName;
-        addEntry(report, {
+        heat = clampHeat(heat + archetypeHeat(arch.id));
+        addE({
           tick,
           kind: 'CustomerArrived',
           text: `${arrivalName} walks in.`,
@@ -249,7 +299,7 @@ export function runShift(
     const lazyThisTick = lazyTicks.get(tick);
     if (lazyThisTick) {
       capacity = Math.max(0, capacity - 1);
-      addEntry(report, {
+      addE({
         tick,
         kind: 'Note',
         text: `${lazyThisTick.hired.displayName} ducks out for a smoke. Service stalls.`,
@@ -284,7 +334,8 @@ export function runShift(
 
       const customerName = c.regular ? c.regular.displayName : c.archetype.displayName;
       report.customersServed++;
-      addEntry(report, {
+      heat = clampHeat(heat + HEAT.perServe);
+      addE({
         tick,
         kind: 'Served',
         text: drink
@@ -300,15 +351,19 @@ export function runShift(
       // Customer-driven mishap roll (existing behavior).
       if (rng.next() < c.archetype.mishapChance) {
         const mishapCost = -rng.intBetween(2, 8);
-        addEntry(report, {
+        const item = rng.pick(DAMAGE_ITEMS);
+        heat = clampHeat(heat + HEAT.perMishap);
+        report.damages.push({ tick, item, cost: -mishapCost });
+        addE({
           tick,
           kind: 'Mishap',
-          text: `${customerName} causes a small scene.`,
+          text: `${customerName} causes a small scene — ${item}.`,
           cashDelta: mishapCost,
           repDelta: -1,
           customerArchetypeId: c.archetype.id,
           regularId: c.regular?.id,
           customerDisplayName: customerName,
+          damageItem: item,
         });
       }
 
@@ -316,13 +371,16 @@ export function runShift(
       for (const klutz of klutzAtFloor) {
         if (rng.next() < TRAIT.klutzTrayChance) {
           const dropCost = -rng.intBetween(2, 6);
-          addEntry(report, {
+          heat = clampHeat(heat + HEAT.perMishap * 0.5);
+          report.damages.push({ tick, item: 'spilled tray', cost: -dropCost });
+          addE({
             tick,
             kind: 'Mishap',
             text: `${klutz.hired.displayName} drops a tray.`,
             cashDelta: dropCost,
             repDelta: 0,
             staffInstanceId: klutz.hired.instanceId,
+            damageItem: 'spilled tray',
           });
         }
       }
@@ -337,7 +395,8 @@ export function runShift(
         report.customersLost++;
         const repHit = -Math.ceil(config.repPerWalkout);
         const lostName = lost.regular ? lost.regular.displayName : lost.archetype.displayName;
-        addEntry(report, {
+        heat = clampHeat(heat + HEAT.perWalkout);
+        addE({
           tick,
           kind: 'Walkout',
           text: `${lostName} gets tired of waiting and leaves.`,
@@ -375,7 +434,7 @@ export function runShift(
             }
           }
         }
-        addEntry(report, {
+        addE({
           tick,
           kind: 'Event',
           text: narrative,
@@ -391,7 +450,8 @@ export function runShift(
   for (const c of waiting) {
     report.customersLost++;
     const closeName = c.regular ? c.regular.displayName : c.archetype.displayName;
-    addEntry(report, {
+    heat = clampHeat(heat + HEAT.perWalkout);
+    addE({
       tick: config.tickCount,
       kind: 'Walkout',
       text: `${closeName} doesn't get served before close.`,
@@ -403,6 +463,7 @@ export function runShift(
     });
   }
 
+  report.heatAtClose = heat;
   return report;
 }
 
@@ -442,6 +503,7 @@ export function applyReport(state: GameState, report: ShiftReport): { state: Gam
     cash: state.cash + report.cashDelta - wages,
     reputation: Math.max(0, Math.min(100, state.reputation + report.repDelta)),
     regulars: updatedRegulars,
+    heat: clampHeat(report.heatAtClose - HEAT.overnightDecay),
   };
   return { state: newState, report: annotated };
 }

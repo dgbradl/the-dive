@@ -21,6 +21,8 @@ function emptyReport(day: number): ShiftReport {
     customersLost: 0,
     wagesPaid: 0,
     entries: [],
+    heatAtClose: 0,
+    damages: [],
   };
 }
 

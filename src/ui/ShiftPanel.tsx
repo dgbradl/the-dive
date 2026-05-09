@@ -35,6 +35,9 @@ export function ShiftPanel({ report, onComplete }: Props) {
   const [currentPhase, setCurrentPhase] = useState<ShiftPhase>('Early');
   const [lastPour, setLastPour] = useState(0);
   const [dialogueText, setDialogueText] = useState('Place looks dead. Let’s open up.');
+  const [currentHeat, setCurrentHeat] = useState(0);
+  const [damageTotal, setDamageTotal] = useState(0);
+  const [damageItems, setDamageItems] = useState<string[]>([]);
   const logScrollRef = useRef<HTMLDivElement | null>(null);
   const toastIdRef = useRef(0);
 
@@ -85,6 +88,11 @@ export function ShiftPanel({ report, onComplete }: Props) {
     setCurrentPhase('Early');
     setLastPour(0);
     setDialogueText('Place looks dead. Let’s open up.');
+    setCurrentHeat(0);
+    setDamageTotal(0);
+    setDamageItems([]);
+    let damageRunningTotal = 0;
+    const damageRunningItems: string[] = [];
     sceneRef.current?.reset();
 
     const step = () => {
@@ -102,6 +110,13 @@ export function ShiftPanel({ report, onComplete }: Props) {
       setRunningRep(repSoFar);
       if (entry.tick > 0) setCurrentTick(entry.tick);
       if (entry.phase) setCurrentPhase(entry.phase);
+      if (typeof entry.heatAfter === 'number') setCurrentHeat(entry.heatAfter);
+      if (entry.kind === 'Mishap' && entry.damageItem) {
+        damageRunningTotal += Math.max(0, -entry.cashDelta);
+        if (!damageRunningItems.includes(entry.damageItem)) damageRunningItems.push(entry.damageItem);
+        setDamageTotal(damageRunningTotal);
+        setDamageItems([...damageRunningItems]);
+      }
       if (entry.kind === 'Served' && entry.cashDelta > 0) setLastPour(entry.cashDelta);
       const voiceLine = bartenderVoiceFor(entry);
       if (voiceLine) setDialogueText(voiceLine);
@@ -182,9 +197,9 @@ export function ShiftPanel({ report, onComplete }: Props) {
         tick={currentTick}
         tickCount={defaultShiftConfig.tickCount}
         phase={currentPhase}
-        heat={0}
-        damage={0}
-        damageItems=""
+        heat={Math.round(currentHeat)}
+        damage={damageTotal}
+        damageItems={damageItems.join(', ')}
       />
       <DialogueLine speaker="Marv" text={dialogueText} />
       <ActionBar />
