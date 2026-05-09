@@ -97,6 +97,30 @@ export function App() {
     });
   }, []);
 
+  const buyUpgrade = useCallback((upgradeId: string) => {
+    setState((s) => {
+      const up = catalog.upgrades.find((u) => u.id === upgradeId);
+      if (!up) return s;
+      if (s.ownedUpgradeIds.includes(upgradeId)) return s;
+      if (s.cash < up.cost) return s;
+      return {
+        ...s,
+        cash: s.cash - up.cost,
+        ownedUpgradeIds: [...s.ownedUpgradeIds, upgradeId],
+      };
+    });
+  }, []);
+
+  const setDrinkPrice = useCallback((drinkId: string, price: number | null) => {
+    setState((s) => {
+      const others = s.drinkPrices.filter((p) => p.drinkId !== drinkId);
+      if (price === null) {
+        return { ...s, drinkPrices: others };
+      }
+      return { ...s, drinkPrices: [...others, { drinkId, price }] };
+    });
+  }, []);
+
   return (
     <div className="app">
       {phase === 'planning' && (
@@ -107,6 +131,8 @@ export function App() {
           onHire={hireStaff}
           onFire={fireStaff}
           onAssign={assignStaff}
+          onBuyUpgrade={buyUpgrade}
+          onSetDrinkPrice={setDrinkPrice}
         />
       )}
       {phase === 'shift' && lastReport && (

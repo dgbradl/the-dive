@@ -1,4 +1,4 @@
-import type { GameState, StaffArchetype, HiredStaff, StaffTrait } from '../game/types';
+import type { Drink, GameState, HiredStaff, StaffArchetype, StaffTrait, Upgrade } from '../game/types';
 import { Station } from '../game/types';
 import { catalog } from '../game/content';
 
@@ -9,7 +9,12 @@ interface Props {
   onHire: (archetypeId: string) => void;
   onFire: (instanceId: string) => void;
   onAssign: (instanceId: string, station: Station) => void;
+  onBuyUpgrade: (upgradeId: string) => void;
+  onSetDrinkPrice: (drinkId: string, price: number | null) => void;
 }
+
+const MIN_PRICE = 1;
+const MAX_PRICE = 30;
 
 const STATIONS: Station[] = [Station.OffShift, Station.Bar, Station.Floor, Station.Door];
 const STATION_LABELS: Record<Station, string> = {
@@ -19,9 +24,20 @@ const STATION_LABELS: Record<Station, string> = {
   [Station.Door]: 'Door',
 };
 
-export function PlanningPanel({ state, onStartShift, onResetSave, onHire, onFire, onAssign }: Props) {
+export function PlanningPanel({
+  state,
+  onStartShift,
+  onResetSave,
+  onHire,
+  onFire,
+  onAssign,
+  onBuyUpgrade,
+  onSetDrinkPrice,
+}: Props) {
   const hiredArchetypeIds = new Set(state.hiredStaff.map((h) => h.archetypeId));
   const availableHires = catalog.staffArchetypes.filter((a) => !hiredArchetypeIds.has(a.id));
+  const ownedUpgrades = catalog.upgrades.filter((u) => state.ownedUpgradeIds.includes(u.id));
+  const availableUpgrades = catalog.upgrades.filter((u) => !state.ownedUpgradeIds.includes(u.id));
 
   return (
     <div className="panel planning-panel">
@@ -77,6 +93,51 @@ export function PlanningPanel({ state, onStartShift, onResetSave, onHire, onFire
           </ul>
         </div>
       )}
+
+      <div className="section">
+        <h2>Tonight's menu</h2>
+        <ul className="menu-list">
+          {catalog.drinks.map((d) => {
+            const override = state.drinkPrices.find((p) => p.drinkId === d.id);
+            const price = override?.price ?? d.suggestedPrice;
+            return (
+              <DrinkRow
+                key={d.id}
+                drink={d}
+                price={price}
+                hasOverride={!!override}
+                onChange={(p) => onSetDrinkPrice(d.id, p)}
+                onReset={() => onSetDrinkPrice(d.id, null)}
+              />
+            );
+          })}
+        </ul>
+      </div>
+
+      <div className="section">
+        <h2>Upgrades</h2>
+        {ownedUpgrades.length > 0 && (
+          <div className="owned-upgrades">
+            {ownedUpgrades.map((u) => (
+              <span key={u.id} className="owned-pill">{u.displayName}</span>
+            ))}
+          </div>
+        )}
+        {availableUpgrades.length > 0 ? (
+          <ul className="upgrade-list">
+            {availableUpgrades.map((u) => (
+              <UpgradeCard
+                key={u.id}
+                upgrade={u}
+                cash={state.cash}
+                onBuy={() => onBuyUpgrade(u.id)}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="empty-hint">You've bought everything. Time to dream bigger.</p>
+        )}
+      </div>
 
       <div className="section flavor">
         <p>The dive opens at 8. Pour 'em strong.</p>
@@ -162,4 +223,80 @@ function TraitChips({ traits }: { traits: StaffTrait[] }) {
       ))}
     </div>
   );
+}
+
+interface DrinkRowProps {
+  drink: Drink;
+  price: number;
+  hasOverride: boolean;
+  onChange: (price: number) => void;
+  onReset: () => void;
+}
+
+function DrinkRow({ drink, price, hasOverride, onChange, onReset }: DrinkRowProps) {
+  const margin = price - drink.costToMake;
+  const dec = () => onChange(Math.max(MIN_PRICE, price - 1));
+  const inc = () => onChange(Math.min(MAX_PRICE, price + 1));
+  return (
+    <li className="drink-row">
+      <div className="drink-meta">
+        <div className="drink-name">{drink.displayName}</div>
+        <div className="drink-sub">
+          cost ${drink.costToMake} · margin ${margin}
+          {hasOverride && (
+            <button className="link-btn" onClick={onReset}>reset to ${drink.suggestedPrice}</button>
+          )}
+        </div>
+      </div>
+      <div className="stepper">
+        <button className="step" onClick={dec} disabled={price <= MIN_PRICE} aria-label="Decrease price">−</button>
+        <span className="price">${price}</span>
+        <button className="step" onClick={inc} disabled={price >= MAX_PRICE} aria-label="Increase price">+</button>
+      </div>
+    </li>
+  );
+}
+
+interface UpgradeCardProps {
+  upgrade: Upgrade;
+  cash: number;
+  onBuy: () => void;
+}
+
+function UpgradeCard({ upgrade, cash, onBuy }: UpgradeCardProps) {
+  const canAfford = cash >= upgrade.cost;
+  const effects = formatUpgradeEffects(upgrade);
+  return (
+    <li className="upgrade-card">
+      <div className="upgrade-meta">
+        <div className="staff-name">{upgrade.displayName}</div>
+        <div className="staff-flavor">{upgrade.flavorText}</div>
+        {effects.length > 0 && (
+          <div className="trait-chips">
+            {effects.map((e) => (
+              <span key={e} className="chip effect">{e}</span>
+            ))}
+          </div>
+        )}
+        <button className="hire-btn" disabled={!canAfford} onClick={onBuy}>
+          Buy · ${upgrade.cost}
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function formatUpgradeEffects(u: Upgrade): string[] {
+  const out: string[] = [];
+  if (u.spawnRateMultiplier !== 1) {
+    const pct = Math.round((u.spawnRateMultiplier - 1) * 100);
+    out.push(`${pct >= 0 ? '+' : ''}${pct}% customers`);
+  }
+  if (u.repPerShift !== 0) {
+    out.push(`${u.repPerShift > 0 ? '+' : ''}${u.repPerShift} rep/shift`);
+  }
+  if (u.tipBonus !== 0) {
+    out.push(`${u.tipBonus > 0 ? '+' : ''}$${u.tipBonus} tip`);
+  }
+  return out;
 }
