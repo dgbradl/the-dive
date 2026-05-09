@@ -1,6 +1,7 @@
 import type { Drink, GameState, HiredStaff, StaffArchetype, StaffTrait, Upgrade } from '../game/types';
 import { Station } from '../game/types';
 import { catalog } from '../game/content';
+import { MuteButton } from './MuteButton';
 
 interface Props {
   state: GameState;
@@ -52,6 +53,7 @@ export function PlanningPanel({
             <span className="label">Rep</span>
             <span className="value">{state.reputation}</span>
           </div>
+          <MuteButton />
         </div>
       </div>
 

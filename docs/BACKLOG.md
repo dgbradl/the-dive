@@ -20,8 +20,20 @@ week-long arc rather than a 3-min run.
 - ✅ **Slice 3 — Staff traits fire in sim.** Quick / Lazy / Klutz /
   Charming / Surly / Chatty all wired to `runShift` with a `TRAIT` block
   for tuning. 7 new tests. Hire cards translate traits to plain English.
-- ⏳ **Slice 4 — Shift phases + reputation tiers.** *Next up.*
-- ⏳ **Slice 5 — Juice pass: sound, animated numbers, end-of-day newspaper.**
+- ✅ **Slice 4 — Shift phases + reputation tiers.** Early / Prime / Last
+  Call derived from tick, phase-change `Note` entries tagged with `phase`
+  for the visualizer, per-archetype `phaseSpawnMultiplier`, and
+  `minReputation` gating. Three new archetypes: Date-Night Couple (rep
+  15+), Yelp Reviewer (rep 35+), Wedding Party (rep 60+). 6 new tests.
+  Phaser-side phase reaction (tint / time-of-night text) deferred to the
+  Slice 5 juice pass.
+- ✅ **Slice 5 — Juice pass.** End-of-day newspaper (THE DIVE TIMES,
+  serif, body paragraph synthesized from `report.entries`); count-up
+  totals on the results screen and a running cash/rep readout in the
+  shift header; floating `+$N` cash toasts over the Phaser canvas;
+  procedural Web Audio SFX (coin / chime / trombone / glass break)
+  triggered per entry, with a global mute toggle persisted to
+  localStorage. No new runtime deps.
 
 ## Suggested first 5 slices
 
@@ -30,8 +42,8 @@ week-long arc rather than a 3-min run.
 | 1 | Hire/fire + station assignment UI | ✅ done | Doubles playable surface area in one PR | `PlanningPanel.tsx` |
 | 2 | Upgrade shop + drink price UI | ✅ done | Real decisions every morning | `PlanningPanel.tsx` |
 | 3 | Staff traits actually firing in sim | ✅ done | First *depth* slice — Klutz / Lazy / Charming / Surly do something | `simulator.ts`, `types.ts` |
-| 4 | Shift phases (Early / Prime / Last Call) + rep tiers | ⏳ next | Adds rhythm to shifts and visible long-arc progression | `simulator.ts`, `content.ts`, `PlanningPanel.tsx` |
-| 5 | Juice pass: sound, number animations, end-of-day newspaper | ⏳ | The feel axis — game stops feeling like a prototype | `ResultsPanel.tsx`, `ShiftPanel.tsx`, new `audio/` |
+| 4 | Shift phases (Early / Prime / Last Call) + rep tiers | ✅ done | Adds rhythm to shifts and visible long-arc progression | `simulator.ts`, `types.ts`, `content.ts` |
+| 5 | Juice pass: sound, number animations, end-of-day newspaper | ✅ done | The feel axis — game stops feeling like a prototype | `ResultsPanel.tsx`, `ShiftPanel.tsx`, new `audio.ts` |
 
 After those five, the game is genuinely fun for ~30 min. Then we choose: more
 depth (drink crafting, crisis decisions, regulars-with-loyalty) or more polish
@@ -56,17 +68,13 @@ Mood drifts each shift based on outcomes (busy = +mood for Quick, -mood for
 Lazy; getting yelled at = -mood). Below 30 = trait penalties amplify; above
 80 = bonuses. Show mood meter on staff card. Touches `simulator.ts`,
 `PlanningPanel.tsx`.
-**B3.** Shift phases. Split the 20-tick shift into Early (1–6, dive
-regulars), Prime (7–14, full mix), Last Call (15–20, rowdy + walkouts
-harsher). Different `spawnWeight` modifiers per phase. Sim emits
-phase-change `Note` entries the Phaser scene can react to (tint shift,
-time-of-night text). Touches `simulator.ts`, `PhaserBarScene.ts`.
-**B4.** Reputation tiers gate customers. Add `minReputation` to
-`CustomerArchetype` (already on `RandomEvent` — same pattern). Author 3
-tiers of new types: Date-Night Couple (rep 15+, big tippers), Yelp Reviewer
-(rep 35+, +rep on serve / -rep on mishap), Wedding Party (rep 60+, swarms
-in). Player feels rep climbing. Touches `types.ts`, `content.ts`,
-`simulator.ts`.
+**B3.** ✅ Shift phases. `phaseForTick` derives Early/Prime/LastCall;
+`phaseSpawnMultiplier` per archetype; phase-change `Note` entries are
+tagged with `phase` for the Phaser scene to consume. Phaser tint /
+time-of-night text deferred to Slice 5.
+**B4.** ✅ Reputation tiers gate customers. `minReputation` added to
+`CustomerArchetype`; Date-Night Couple (15+), Yelp Reviewer (35+),
+Wedding Party (60+) authored.
 **B5.** Inventory / restocking. Each drink has `stockLeft` set from a
 morning order; running out mid-shift = walkouts. Player allocates morning
 cash between staff/upgrades/stock. Real triage. Touches `types.ts`,
@@ -92,18 +100,18 @@ forces real choices in mid-week. Game-over screen with restart. Touches
 `types.ts`, `App.tsx`, new `MilestoneBanner.tsx`.
 
 ### C. Polish & juice — the feel axis
-**C1.** Sound + music. Howler.js (~10kb) for SFX. Bar chatter loop, jukebox
-tracks (rotate 3), coin clink on tip, sad trombone on walkout, register
-chime on big tip, glass-break on mishap. Mute toggle in a settings menu.
-Touches new `src/audio/`, `ShiftPanel.tsx`, `ResultsPanel.tsx`.
-**C2.** End-of-day newspaper. Replace `ResultsPanel`'s grid with a
-stylized receipt/newspaper: serif headline, "BANNER NIGHT", a body
-paragraph riffing on the night's actual events ("Skeeter ejected one
-rowdy. Marv served 14. The jukebox ate three quarters."). Generated from
-`report.entries`. Touches `ResultsPanel.tsx`.
-**C3.** Number juice. Animated coin-flip when cash changes; screen flash +
-chime on big tip; rep meter fills with easing instead of jumping. Tiny but
-transformative. Touches `ShiftPanel.tsx`, `ResultsPanel.tsx`.
+**C1.** ✅ Sound. Built procedurally via Web Audio (no Howler dep, no
+asset files) in `src/ui/audio.ts`: coin / chime / trombone / glass-break
+SFX triggered per shift entry, plus a global mute toggle persisted to
+localStorage. Music loops + jukebox tracks remain unbuilt — would need
+real assets and are deferred.
+**C2.** ✅ End-of-day newspaper. `composeStory` synthesizes a paragraph
+from `report.entries` (crew callouts, event tallies, rep-tier color);
+serif "DIVE TIMES" masthead with a four-column totals strip.
+**C3.** ✅ Number juice. `useCountUp` hook (RAF + ease-out cubic) drives
+animated totals on the results panel; running cash/rep readout in the
+shift header; floating `+$N` toasts over the Phaser canvas, larger with
+a glow for tips ≥ $25.
 **C4.** Phaser scene polish. Parallax dive interior (back wall, jukebox,
 neon sign, pool table, dartboard); customers walk to *the bar counter*
 instead of a queue line; jukebox light pulses; jukebox sprite shakes when

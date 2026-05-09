@@ -8,10 +8,29 @@ import {
   type HiredStaff,
   type ShiftConfig,
   type ShiftEntry,
+  type ShiftPhase,
   type ShiftReport,
   type StaffArchetype,
   type StaffTrait,
 } from './types';
+
+function phaseForTick(tick: number, tickCount: number): ShiftPhase {
+  const earlyEnd = Math.max(1, Math.floor(tickCount * 0.3));
+  const primeEnd = Math.max(earlyEnd + 1, Math.floor(tickCount * 0.7));
+  if (tick <= earlyEnd) return 'Early';
+  if (tick <= primeEnd) return 'Prime';
+  return 'LastCall';
+}
+
+function phaseMultiplier(arch: CustomerArchetype, phase: ShiftPhase): number {
+  const m = arch.phaseSpawnMultiplier;
+  if (!m) return 1;
+  switch (phase) {
+    case 'Early': return m.early ?? 1;
+    case 'Prime': return m.prime ?? 1;
+    case 'LastCall': return m.lastCall ?? 1;
+  }
+}
 
 // Trait magnitudes — tunable in one place.
 const TRAIT = {
@@ -162,10 +181,25 @@ export function runShift(
 
   const waiting: WaitingCustomer[] = [];
 
+  let prevPhase: ShiftPhase | null = null;
   for (let tick = 1; tick <= config.tickCount; tick++) {
+    const phase = phaseForTick(tick, config.tickCount);
+    if (phase !== prevPhase) {
+      const text =
+        phase === 'Early'
+          ? 'Early shift — the regulars trickle in.'
+          : phase === 'Prime'
+            ? 'Prime time. The bar fills up.'
+            : 'Last call. The night gets rowdy.';
+      addEntry(report, { tick, kind: 'Note', text, cashDelta: 0, repDelta: 0, phase });
+      prevPhase = phase;
+    }
+
     // 1. Spawn customers (Chatty extends patience)
     for (const arch of catalog.customerArchetypes) {
-      if (rng.next() < arch.spawnWeight * spawnMult) {
+      if (state.reputation < (arch.minReputation ?? 0)) continue;
+      const phaseMult = phaseMultiplier(arch, phase);
+      if (rng.next() < arch.spawnWeight * spawnMult * phaseMult) {
         waiting.push({ archetype: arch, patienceLeft: arch.patienceTicks + patienceBonus });
         addEntry(report, {
           tick,

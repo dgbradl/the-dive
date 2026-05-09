@@ -72,11 +72,16 @@ src/
 
 ## Where we are
 
-- Slices 1, 2, 3 of the backlog are shipped (hire/fire UI, drink prices +
-  upgrade shop, staff traits firing in the simulator).
-- Next up is **Slice 4: shift phases (Early / Prime / Last Call) + reputation
-  tiers gating new customer types.** See `docs/BACKLOG.md` for the full plan
-  and current progress.
+- Slices 1–5 of the backlog are shipped (hire/fire UI, drink prices +
+  upgrade shop, staff traits firing in the simulator, shift phases + rep
+  tiers gating new customer archetypes, juice pass: end-of-day newspaper
+  + count-up totals + floating cash toasts + procedural Web Audio SFX
+  with a global mute toggle).
+- The "first five" sequencing from `docs/BACKLOG.md` is complete. Next
+  direction is a choice between depth (B5 inventory, B6 crisis decisions,
+  B7 regulars-with-loyalty, B9 weekly milestone goals) and remaining
+  polish (C4 Phaser scene polish, C5 thought bubbles, C7 pixel art).
+  See `docs/BACKLOG.md`.
 
 ## Don't
 
