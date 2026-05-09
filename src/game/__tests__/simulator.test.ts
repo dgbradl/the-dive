@@ -123,6 +123,7 @@ function fixture(spec: StaffSpec[]): { state: GameState; catalog: GameCatalog } 
     ownedUpgradeIds: [],
     assignments,
     nightlySpecialDrinkId: null,
+    regulars: [],
   };
   return { state, catalog: testCatalog };
 }
@@ -285,6 +286,62 @@ describe('staff traits', () => {
     }
     expect(weddingsAt50).toBe(0);
     expect(weddingsAt80).toBeGreaterThan(0);
+  });
+
+  it('regulars with loyalty < 0 do not spawn', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.regulars = [
+      { id: 'reg_test_banned', displayName: 'Banned Bob', archetypeId: 'dive_regular', spriteId: 'dive_regular', loyalty: -3, lastSeenDay: 0 },
+      { id: 'reg_test_ok',     displayName: 'OK Otto',    archetypeId: 'dive_regular', spriteId: 'dive_regular', loyalty: 0,  lastSeenDay: 0 },
+    ];
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 30000 + seed);
+      for (const e of r.entries) if (e.regularId) seen.add(e.regularId);
+    }
+    expect(seen.has('reg_test_banned')).toBe(false);
+    expect(seen.has('reg_test_ok')).toBe(true);
+  });
+
+  it('applyReport bumps regular loyalty +1 on serve and -3 on walkout', () => {
+    const s = freshState();
+    const otto = { id: 'reg_test_otto', displayName: 'Otto', archetypeId: 'dive_regular', spriteId: 'dive_regular', loyalty: 0, lastSeenDay: 0 };
+    const sam  = { id: 'reg_test_sam',  displayName: 'Sam',  archetypeId: 'dive_regular', spriteId: 'dive_regular', loyalty: 0, lastSeenDay: 0 };
+    s.regulars = [otto, sam];
+    const report: ShiftReport = {
+      day: 5, seed: 1, cashDelta: 0, repDelta: 0, customersServed: 1, customersLost: 1, wagesPaid: 0,
+      entries: [
+        { tick: 1, kind: 'Served', text: 'served Otto', cashDelta: 5, repDelta: 0, regularId: 'reg_test_otto' },
+        { tick: 5, kind: 'Walkout', text: 'sam walks', cashDelta: 0, repDelta: -1, regularId: 'reg_test_sam' },
+      ],
+    };
+    s.day = 5;
+    const { state: next } = applyReport(s, report);
+    const ottoAfter = next.regulars.find((r) => r.id === 'reg_test_otto')!;
+    const samAfter = next.regulars.find((r) => r.id === 'reg_test_sam')!;
+    expect(ottoAfter.loyalty).toBe(1);
+    expect(ottoAfter.lastSeenDay).toBe(5);
+    expect(samAfter.loyalty).toBe(-3);
+    expect(samAfter.lastSeenDay).toBe(5);
+  });
+
+  it('regulars surface customerDisplayName on entries', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.regulars = [
+      { id: 'reg_test_pat', displayName: 'Patrick', archetypeId: 'dive_regular', spriteId: 'dive_regular', loyalty: 5, lastSeenDay: 0 },
+    ];
+    let foundNamed = false;
+    for (let seed = 0; seed < 30 && !foundNamed; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 40000 + seed);
+      for (const e of r.entries) {
+        if (e.regularId === 'reg_test_pat') {
+          foundNamed = true;
+          expect(e.customerDisplayName).toBe('Patrick');
+          break;
+        }
+      }
+    }
+    expect(foundNamed).toBe(true);
   });
 
   it('Charming on Door reduces avg crisis cash penalty', () => {

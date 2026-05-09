@@ -24,7 +24,9 @@ const FALLBACK_SPRITE = 'sprite_generic';
 
 interface CustomerSprite {
   image: Phaser.GameObjects.Image;
+  nameLabel?: Phaser.GameObjects.Text;
   archetypeId: string;
+  regularId?: string;
 }
 
 export class BarScene extends Phaser.Scene {
@@ -99,13 +101,13 @@ export class BarScene extends Phaser.Scene {
   handleEntry(entry: ShiftEntry) {
     switch (entry.kind) {
       case 'CustomerArrived':
-        this.spawnCustomer(entry.customerArchetypeId);
+        this.spawnCustomer(entry);
         break;
       case 'Served':
-        this.serveCustomer(entry.customerArchetypeId);
+        this.serveCustomer(entry);
         break;
       case 'Walkout':
-        this.walkoutCustomer(entry.customerArchetypeId);
+        this.walkoutCustomer(entry);
         break;
       case 'Mishap':
         this.shake();
@@ -122,7 +124,10 @@ export class BarScene extends Phaser.Scene {
   }
 
   reset() {
-    for (const c of this.waiting) c.image.destroy();
+    for (const c of this.waiting) {
+      c.image.destroy();
+      c.nameLabel?.destroy();
+    }
     this.waiting = [];
     if (this.bannerText) this.bannerText.text = '';
   }
@@ -132,7 +137,8 @@ export class BarScene extends Phaser.Scene {
     return FALLBACK_SPRITE;
   }
 
-  private spawnCustomer(archetypeId?: string) {
+  private spawnCustomer(entry: ShiftEntry) {
+    const archetypeId = entry.customerArchetypeId;
     const arch = archetypeId ? catalog.customerArchetypes.find((a) => a.id === archetypeId) : undefined;
 
     const startX = this.viewW * 0.07;
@@ -141,25 +147,39 @@ export class BarScene extends Phaser.Scene {
     const image = this.add.image(startX, y, this.spriteKey(archetypeId)).setOrigin(0.5, 1);
     const targetH = this.viewH * 0.18;
     image.setScale(targetH / image.height);
-    const sprite: CustomerSprite = { image, archetypeId: arch?.id ?? 'unknown' };
+
+    let nameLabel: Phaser.GameObjects.Text | undefined;
+    if (entry.regularId && entry.customerDisplayName) {
+      nameLabel = this.add.text(startX, y - targetH - 4, entry.customerDisplayName.toUpperCase(), {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '8px',
+        color: COLORS.amber,
+      }).setOrigin(0.5, 1);
+    }
+
+    const sprite: CustomerSprite = {
+      image,
+      nameLabel,
+      archetypeId: arch?.id ?? 'unknown',
+      regularId: entry.regularId,
+    };
     this.waiting.push(sprite);
 
     const targetX = this.queueX(this.waiting.length - 1);
-    this.tweens.add({
-      targets: image,
-      x: targetX,
-      duration: 350,
-      ease: 'Sine.easeOut',
-    });
+    this.tweens.add({ targets: image, x: targetX, duration: 350, ease: 'Sine.easeOut' });
+    if (nameLabel) {
+      this.tweens.add({ targets: nameLabel, x: targetX, duration: 350, ease: 'Sine.easeOut' });
+    }
   }
 
-  private serveCustomer(archetypeId?: string) {
-    const idx = this.findWaitingIndex(archetypeId);
+  private serveCustomer(entry: ShiftEntry) {
+    const idx = this.findWaitingIndex(entry);
     if (idx === -1) return;
     const sprite = this.waiting[idx];
     this.waiting.splice(idx, 1);
 
     const baseScale = sprite.image.scale;
+    sprite.nameLabel?.destroy();
     // Cheer effect — quick scale pulse, then walk off-right
     this.tweens.add({
       targets: sprite.image,
@@ -180,13 +200,14 @@ export class BarScene extends Phaser.Scene {
     this.repackQueue();
   }
 
-  private walkoutCustomer(archetypeId?: string) {
-    const idx = this.findWaitingIndex(archetypeId);
+  private walkoutCustomer(entry: ShiftEntry) {
+    const idx = this.findWaitingIndex(entry);
     if (idx === -1) return;
     const sprite = this.waiting[idx];
     this.waiting.splice(idx, 1);
 
     sprite.image.setTint(COLORS.angryTint);
+    sprite.nameLabel?.destroy();
     this.tweens.add({
       targets: sprite.image,
       x: -40,
@@ -198,10 +219,18 @@ export class BarScene extends Phaser.Scene {
     this.repackQueue();
   }
 
-  private findWaitingIndex(archetypeId?: string): number {
-    if (!archetypeId) return this.waiting.length > 0 ? 0 : -1;
-    const idx = this.waiting.findIndex((c) => c.archetypeId === archetypeId);
-    return idx === -1 && this.waiting.length > 0 ? 0 : idx;
+  private findWaitingIndex(entry: ShiftEntry): number {
+    // Prefer named regulars by id; fall back to archetype match; fall back to head.
+    if (entry.regularId) {
+      const exact = this.waiting.findIndex((c) => c.regularId === entry.regularId);
+      if (exact !== -1) return exact;
+    }
+    const archetypeId = entry.customerArchetypeId;
+    if (archetypeId) {
+      const byArch = this.waiting.findIndex((c) => c.archetypeId === archetypeId);
+      if (byArch !== -1) return byArch;
+    }
+    return this.waiting.length > 0 ? 0 : -1;
   }
 
   private queueX(index: number): number {
@@ -213,12 +242,10 @@ export class BarScene extends Phaser.Scene {
 
   private repackQueue() {
     for (let i = 0; i < this.waiting.length; i++) {
-      this.tweens.add({
-        targets: this.waiting[i].image,
-        x: this.queueX(i),
-        duration: 220,
-        ease: 'Sine.easeOut',
-      });
+      const x = this.queueX(i);
+      this.tweens.add({ targets: this.waiting[i].image, x, duration: 220, ease: 'Sine.easeOut' });
+      const label = this.waiting[i].nameLabel;
+      if (label) this.tweens.add({ targets: label, x, duration: 220, ease: 'Sine.easeOut' });
     }
   }
 

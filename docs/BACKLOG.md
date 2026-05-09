@@ -44,11 +44,20 @@ week-long arc rather than a 3-min run.
   fallback for the rep-tier archetypes). Newspaper rebuilt as a
   typewriter receipt (Special Elite body, Press Start 2P headline,
   pixel-label totals strip). Wordmark stamp in the planning header.
-- ⏳ **Slice 7 — Named regulars (B7).** *Next up.* Per-customer instances
-  with persistent loyalty, named portraits at fixed bar stools.
-- ⏳ **Slice 8 — Action bar / crisis decisions (B6).** Interactive shift
-  decisions (POUR / CUT OFF / 86 HIM / RING UP / DOOR), `runShift`
-  evolves to two-phase replay so it stays pure.
+- ✅ **Slice 7 — Named regulars (B7).** Persistent named regulars
+  (Wheezer / Rook / Mike / Doc) with per-regular loyalty. Simulator
+  picks a regular from an eligibility pool when their archetype rolls
+  to spawn (60% chance when one is available); +1 loyalty on serve, -3
+  on walkout; loyalty < 0 stops them from spawning. Save-format bumped
+  v1 → v2 with a forward migration. Phaser scene paints the regular's
+  uppercase name above their portrait. Newspaper calls them out by
+  name. Planning panel gains a "The regulars" roster with portraits,
+  last-seen-day, and a loyalty meter. 5 new tests (spawn gating,
+  loyalty deltas via applyReport, customerDisplayName surface, plus 2
+  save-migration tests in `save.test.ts`).
+- ⏳ **Slice 8 — Action bar / crisis decisions (B6).** *Next up.*
+  Interactive shift decisions (POUR / CUT OFF / 86 HIM / RING UP /
+  DOOR), `runShift` evolves to two-phase replay so it stays pure.
 
 ## Suggested first 5 slices
 
@@ -100,11 +109,10 @@ on floor / take the $25 fine"). Modal in `ShiftPanel`. Branching outcomes
 injected back into the report. The big jump from "watch a number tick" to
 "I'm playing a game". Touches `simulator.ts` (yields a decision),
 `ShiftPanel.tsx`, new `DecisionModal.tsx`.
-**B7.** Regulars with loyalty. Track per-customer-archetype `loyalty` in
-save. Each successful serve +1; walkout -3. Below 0 the archetype stops
-spawning for N days. Visible roster in Planning ("The Dive Regulars
-haven't been around lately…"). Touches `types.ts`, `simulator.ts`,
-`PlanningPanel.tsx`.
+**B7.** ✅ Regulars with loyalty. Implemented per-regular (not
+per-archetype): named instances with their own loyalty score, persisted
+across days. Spawn gated on loyalty ≥ 0; +1 on serve, -3 on walkout.
+Roster visible in Planning panel with last-seen-day + loyalty meter.
 **B8.** Drink crafting / signature drinks. Once you own the Cocktail
 Shaker upgrade, unlock a "Recipe" screen: combine 2 base drinks →
 signature with custom name, +rep on serve. Player-named signatures show up

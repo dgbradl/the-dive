@@ -319,6 +319,46 @@ html, body, #root {
 
 .empty-hint { font-family: var(--font-note); color: var(--text-dim); font-size: 14px; }
 
+/* Regulars roster */
+.regulars-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.regular-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-2);
+  box-shadow: var(--etch-1);
+}
+.regular-row.banned { opacity: 0.5; filter: grayscale(0.6); }
+.regular-row .portrait.small {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  background: var(--tavern-pitch);
+  box-shadow: var(--etch-1);
+  flex-shrink: 0;
+}
+.regular-meta { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.regular-name { font-family: var(--font-pixel); font-size: 10px; color: var(--text); letter-spacing: 0.06em; text-transform: uppercase; }
+.regular-sub { font-family: var(--font-note); font-size: 12px; color: var(--text-dim); }
+
+.loyalty-meter {
+  width: 64px;
+  height: 8px;
+  background: var(--tavern-pitch);
+  box-shadow: var(--etch-1);
+  position: relative;
+  flex-shrink: 0;
+}
+.loyalty-meter .loyalty-fill {
+  height: 100%;
+  transition: width 220ms steps(8, end);
+}
+.loyalty-meter.good .loyalty-fill { background: var(--stain-mint); }
+.loyalty-meter.bad .loyalty-fill { background: var(--stain-cherry); }
+.loyalty-meter.neutral .loyalty-fill { background: var(--ink-dust); }
+
 /* Menu (drink prices) */
 .menu-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .drink-row {

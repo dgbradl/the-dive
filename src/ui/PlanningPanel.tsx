@@ -1,4 +1,4 @@
-import type { Drink, GameState, HiredStaff, StaffArchetype, StaffTrait, Upgrade } from '../game/types';
+import type { Drink, GameState, HiredStaff, Regular, StaffArchetype, StaffTrait, Upgrade } from '../game/types';
 import { Station } from '../game/types';
 import { catalog } from '../game/content';
 import { MuteButton } from './MuteButton';
@@ -106,6 +106,17 @@ export function PlanningPanel({
                 cash={state.cash}
                 onHire={() => onHire(arch.id)}
               />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {state.regulars.length > 0 && (
+        <div className="section">
+          <h2>The regulars</h2>
+          <ul className="regulars-list">
+            {state.regulars.map((r) => (
+              <RegularRow key={r.id} regular={r} currentDay={state.day} />
             ))}
           </ul>
         </div>
@@ -253,6 +264,37 @@ function TraitChips({ traits }: { traits: StaffTrait[] }) {
       {traits.map((t) => (
         <span key={t} className="chip">{t}</span>
       ))}
+    </div>
+  );
+}
+
+function RegularRow({ regular, currentDay }: { regular: Regular; currentDay: number }) {
+  const banned = regular.loyalty < 0;
+  const lastSeen =
+    regular.lastSeenDay === 0
+      ? 'never been in'
+      : currentDay - regular.lastSeenDay <= 0
+        ? 'in last night'
+        : `last seen ${currentDay - regular.lastSeenDay} day${currentDay - regular.lastSeenDay === 1 ? '' : 's'} ago`;
+  return (
+    <li className={`regular-row ${banned ? 'banned' : ''}`}>
+      <img className="portrait small" src={`/sprites/${regular.spriteId}.png`} alt="" width={32} height={32} />
+      <div className="regular-meta">
+        <div className="regular-name">{regular.displayName}</div>
+        <div className="regular-sub">{lastSeen}</div>
+      </div>
+      <LoyaltyMeter loyalty={regular.loyalty} />
+    </li>
+  );
+}
+
+function LoyaltyMeter({ loyalty }: { loyalty: number }) {
+  // Map -10..10 to 0..100% fill. Negative loyalty fills with red, positive with green.
+  const pct = Math.min(100, Math.abs(loyalty) * 10);
+  const tone = loyalty < 0 ? 'bad' : loyalty > 0 ? 'good' : 'neutral';
+  return (
+    <div className={`loyalty-meter ${tone}`} aria-label={`Loyalty ${loyalty}`}>
+      <div className="loyalty-fill" style={{ width: `${pct}%` }} />
     </div>
   );
 }

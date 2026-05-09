@@ -6,6 +6,7 @@ import {
   type GameCatalog,
   type GameState,
   type HiredStaff,
+  type Regular,
   type ShiftConfig,
   type ShiftEntry,
   type ShiftPhase,
@@ -13,6 +14,9 @@ import {
   type StaffArchetype,
   type StaffTrait,
 } from './types';
+
+/** Chance of using a named regular when one is eligible for the spawning archetype. */
+const REGULAR_PICK_CHANCE = 0.6;
 
 function phaseForTick(tick: number, tickCount: number): ShiftPhase {
   const earlyEnd = Math.max(1, Math.floor(tickCount * 0.3));
@@ -50,6 +54,7 @@ const TRAIT = {
 interface WaitingCustomer {
   archetype: CustomerArchetype;
   patienceLeft: number;
+  regular?: Regular;
 }
 
 interface OnShift {
@@ -181,6 +186,15 @@ export function runShift(
 
   const waiting: WaitingCustomer[] = [];
 
+  // Per-shift pool of eligible regulars by archetype (loyalty >= 0, not yet spawned).
+  const regularPool = new Map<string, Regular[]>();
+  for (const reg of state.regulars) {
+    if (reg.loyalty < 0) continue;
+    const list = regularPool.get(reg.archetypeId) ?? [];
+    list.push(reg);
+    regularPool.set(reg.archetypeId, list);
+  }
+
   let prevPhase: ShiftPhase | null = null;
   for (let tick = 1; tick <= config.tickCount; tick++) {
     const phase = phaseForTick(tick, config.tickCount);
@@ -200,14 +214,23 @@ export function runShift(
       if (state.reputation < (arch.minReputation ?? 0)) continue;
       const phaseMult = phaseMultiplier(arch, phase);
       if (rng.next() < arch.spawnWeight * spawnMult * phaseMult) {
-        waiting.push({ archetype: arch, patienceLeft: arch.patienceTicks + patienceBonus });
+        // Try to pick a named regular of this archetype.
+        let regular: Regular | undefined;
+        const pool = regularPool.get(arch.id);
+        if (pool && pool.length > 0 && rng.next() < REGULAR_PICK_CHANCE) {
+          regular = pool.shift();
+        }
+        waiting.push({ archetype: arch, patienceLeft: arch.patienceTicks + patienceBonus, regular });
+        const arrivalName = regular ? regular.displayName : arch.displayName;
         addEntry(report, {
           tick,
           kind: 'CustomerArrived',
-          text: `${arch.displayName} walks in.`,
+          text: `${arrivalName} walks in.`,
           cashDelta: 0,
           repDelta: 0,
           customerArchetypeId: arch.id,
+          regularId: regular?.id,
+          customerDisplayName: arrivalName,
         });
       }
     }
@@ -259,16 +282,19 @@ export function runShift(
       const net = price - cost + tip + config.atmosphereCashPerCustomer;
       const rep = Math.round(c.archetype.repInfluence * config.repPerSatisfied);
 
+      const customerName = c.regular ? c.regular.displayName : c.archetype.displayName;
       report.customersServed++;
       addEntry(report, {
         tick,
         kind: 'Served',
         text: drink
-          ? `Served ${c.archetype.displayName} a ${drink.displayName} (+$${net}, tip $${tip})`
-          : `Served ${c.archetype.displayName} (+$${net})`,
+          ? `Served ${customerName} a ${drink.displayName} (+$${net}, tip $${tip})`
+          : `Served ${customerName} (+$${net})`,
         cashDelta: net,
         repDelta: rep,
         customerArchetypeId: c.archetype.id,
+        regularId: c.regular?.id,
+        customerDisplayName: customerName,
       });
 
       // Customer-driven mishap roll (existing behavior).
@@ -277,10 +303,12 @@ export function runShift(
         addEntry(report, {
           tick,
           kind: 'Mishap',
-          text: `${c.archetype.displayName} causes a small scene.`,
+          text: `${customerName} causes a small scene.`,
           cashDelta: mishapCost,
           repDelta: -1,
           customerArchetypeId: c.archetype.id,
+          regularId: c.regular?.id,
+          customerDisplayName: customerName,
         });
       }
 
@@ -308,13 +336,16 @@ export function runShift(
         waiting.splice(i, 1);
         report.customersLost++;
         const repHit = -Math.ceil(config.repPerWalkout);
+        const lostName = lost.regular ? lost.regular.displayName : lost.archetype.displayName;
         addEntry(report, {
           tick,
           kind: 'Walkout',
-          text: `${lost.archetype.displayName} gets tired of waiting and leaves.`,
+          text: `${lostName} gets tired of waiting and leaves.`,
           cashDelta: 0,
           repDelta: repHit,
           customerArchetypeId: lost.archetype.id,
+          regularId: lost.regular?.id,
+          customerDisplayName: lostName,
         });
       }
     }
@@ -359,13 +390,16 @@ export function runShift(
   // Anyone left waiting at close walks out.
   for (const c of waiting) {
     report.customersLost++;
+    const closeName = c.regular ? c.regular.displayName : c.archetype.displayName;
     addEntry(report, {
       tick: config.tickCount,
       kind: 'Walkout',
-      text: `${c.archetype.displayName} doesn't get served before close.`,
+      text: `${closeName} doesn't get served before close.`,
       cashDelta: 0,
       repDelta: -1,
       customerArchetypeId: c.archetype.id,
+      regularId: c.regular?.id,
+      customerDisplayName: closeName,
     });
   }
 
@@ -379,10 +413,35 @@ export function runShift(
 export function applyReport(state: GameState, report: ShiftReport): { state: GameState; report: ShiftReport } {
   const wages = state.hiredStaff.reduce((sum, h) => sum + h.wagePerDay, 0);
   const annotated: ShiftReport = { ...report, wagesPaid: wages };
+
+  // Aggregate loyalty deltas + last-seen tracking per regular.
+  const loyaltyDelta = new Map<string, number>();
+  const seenIds = new Set<string>();
+  for (const e of report.entries) {
+    if (!e.regularId) continue;
+    seenIds.add(e.regularId);
+    if (e.kind === 'Served') {
+      loyaltyDelta.set(e.regularId, (loyaltyDelta.get(e.regularId) ?? 0) + 1);
+    } else if (e.kind === 'Walkout') {
+      loyaltyDelta.set(e.regularId, (loyaltyDelta.get(e.regularId) ?? 0) - 3);
+    }
+  }
+  const updatedRegulars = state.regulars.map((r) => {
+    const delta = loyaltyDelta.get(r.id) ?? 0;
+    const seen = seenIds.has(r.id);
+    if (delta === 0 && !seen) return r;
+    return {
+      ...r,
+      loyalty: Math.max(-10, Math.min(10, r.loyalty + delta)),
+      lastSeenDay: seen ? state.day : r.lastSeenDay,
+    };
+  });
+
   const newState: GameState = {
     ...state,
     cash: state.cash + report.cashDelta - wages,
     reputation: Math.max(0, Math.min(100, state.reputation + report.repDelta)),
+    regulars: updatedRegulars,
   };
   return { state: newState, report: annotated };
 }

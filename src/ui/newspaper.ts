@@ -77,6 +77,28 @@ export function composeStory(
     }
   }
 
+  // Named regulars — call out who came in by name.
+  const regularsSeen = new Map<string, number>();
+  const regularsLost = new Set<string>();
+  for (const e of report.entries) {
+    if (!e.regularId || !e.customerDisplayName) continue;
+    if (e.kind === 'Served') {
+      regularsSeen.set(e.customerDisplayName, (regularsSeen.get(e.customerDisplayName) ?? 0) + 1);
+    } else if (e.kind === 'Walkout') {
+      regularsLost.add(e.customerDisplayName);
+    }
+  }
+  const seenNames = [...regularsSeen.keys()];
+  if (seenNames.length === 1) {
+    sentences.push(`${seenNames[0]} was in.`);
+  } else if (seenNames.length > 1) {
+    sentences.push(`${joinNames(seenNames)} were all in.`);
+  }
+  if (regularsLost.size > 0) {
+    const lost = [...regularsLost];
+    sentences.push(`${joinNames(lost)} walked out — won't forget that one soon.`);
+  }
+
   // Rep-tier color.
   const archIds = new Set(
     report.entries.filter((e) => e.kind === 'CustomerArrived').map((e) => e.customerArchetypeId),
