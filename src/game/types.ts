@@ -85,6 +85,14 @@ export interface RandomEvent {
   requiresUpgradeId?: string;
   requiresNotUpgradeId?: string;
   minReputation?: number;
+  /**
+   * If present, the event becomes an interactive Decision instead of an
+   * automatic Event entry. The first option marked `isDefault` is applied
+   * if the player doesn't override.
+   */
+  decisionOptions?: DecisionOption[];
+  /** Prompt shown above the action bar when the decision pauses playback. */
+  decisionPrompt?: string;
 }
 
 export interface Upgrade {
