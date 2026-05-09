@@ -33,7 +33,20 @@ interface CustomerSprite {
 }
 
 const STOOLS = 5;
-const AMBIENT_TINTS = [0xb88a4a, 0x8a7a5a, 0xc8b890, 0xd8a55c, 0x6a4a2e];
+
+/**
+ * Floor table seats — two pairs around two tables. Served anonymous
+ * customers settle at a free seat to "drink with friends" instead of
+ * walking off-screen.
+ */
+const TABLE_SEATS: { x: number; y: number; faceLeft: boolean }[] = [
+  { x: 0.18, y: 0.78, faceLeft: false }, // table 1 — left side
+  { x: 0.30, y: 0.86, faceLeft: true  }, // table 1 — right side
+  { x: 0.62, y: 0.80, faceLeft: false }, // table 2 — left side
+  { x: 0.74, y: 0.88, faceLeft: true  }, // table 2 — right side
+];
+
+const CHAT_LINES = ['Cheers!', 'Ha!', 'No way…', 'Same.', 'Tell me again.', 'Yikes.', 'Hey now.'];
 
 const ARRIVAL_BUBBLES: Record<string, string> = {
   dive_regular: 'Same as always.',
@@ -46,7 +59,8 @@ const ARRIVAL_BUBBLES: Record<string, string> = {
 
 export class BarScene extends Phaser.Scene {
   private waiting: CustomerSprite[] = [];
-  private ambient: Phaser.GameObjects.Image[] = [];
+  /** Customers who got served and settled at a table — kept alive on screen. */
+  private tableSeated: (CustomerSprite & { tableSeat: number })[] = [];
   private bannerText?: Phaser.GameObjects.Text;
   private viewW = 0;
   private viewH = 0;
@@ -139,33 +153,26 @@ export class BarScene extends Phaser.Scene {
       wordWrap: { width: this.viewW * 0.9 },
     }).setOrigin(0.5);
 
-    this.spawnAmbient();
-  }
-
-  private spawnAmbient() {
-    for (let i = 0; i < 3; i++) {
-      const img = this.add.image(this.viewW * (0.3 + i * 0.2), this.viewH * 0.78, FALLBACK_SPRITE)
-        .setOrigin(0.5, 1)
-        .setAlpha(0.85)
-        .setTint(AMBIENT_TINTS[i % AMBIENT_TINTS.length]);
-      const targetH = this.viewH * (0.13 + (i % 2) * 0.02);
-      img.setScale(targetH / img.height);
-      this.ambient.push(img);
-      this.wanderLoop(img);
-    }
-  }
-
-  private wanderLoop(img: Phaser.GameObjects.Image) {
-    const tx = Phaser.Math.Between(this.viewW * 0.18, this.viewW * 0.86);
-    const ty = Phaser.Math.Between(this.viewH * 0.72, this.viewH * 0.92);
-    img.setFlipX(tx < img.x);
-    this.tweens.add({
-      targets: img,
-      x: tx,
-      y: ty,
-      duration: Phaser.Math.Between(2400, 4200),
-      onComplete: () => this.wanderLoop(img),
+    // Periodic chat bubbles among seated customers — gives the bar life
+    // without being a distraction.
+    this.time.addEvent({
+      delay: 3500,
+      loop: true,
+      callback: () => this.chatTick(),
     });
+  }
+
+  private chatTick() {
+    const candidates = this.tableSeated;
+    if (candidates.length === 0) return;
+    if (Math.random() > 0.55) return; // sometimes no chatter
+    const sprite = candidates[Math.floor(Math.random() * candidates.length)];
+    const seat = TABLE_SEATS[sprite.tableSeat];
+    if (!seat) return;
+    const x = this.viewW * seat.x;
+    const y = this.viewH * seat.y - this.viewH * 0.16 - 6;
+    const line = CHAT_LINES[Math.floor(Math.random() * CHAT_LINES.length)];
+    this.flashBubble(x, y, line);
   }
 
   handleEntry(entry: ShiftEntry) {
@@ -199,9 +206,13 @@ export class BarScene extends Phaser.Scene {
       c.image.destroy();
       c.nameLabel?.destroy();
     }
+    for (const c of this.tableSeated) {
+      c.bobTween?.stop();
+      c.image.destroy();
+    }
     this.waiting = [];
+    this.tableSeated = [];
     if (this.bannerText) this.bannerText.text = '';
-    // Ambient wanderers persist across shifts — they're decorative.
   }
 
   private spriteKey(archetypeId?: string): string {
@@ -302,25 +313,87 @@ export class BarScene extends Phaser.Scene {
 
     const baseScale = sprite.image.scale;
     sprite.bobTween?.stop();
+    sprite.bobTween = undefined;
     sprite.nameLabel?.destroy();
-    // Cheer effect — quick scale pulse, then walk off-right
+    sprite.nameLabel = undefined;
+
+    // Named regulars stay on their stool. Anonymous customers try to
+    // grab a free table seat to chill with friends; otherwise they
+    // walk off-right after a cheer pulse.
+    const stoolBound = sprite.stool !== undefined;
+    const seatIdx = stoolBound ? undefined : this.firstFreeTableSeat();
+
+    // Cheer pulse first.
     this.tweens.add({
       targets: sprite.image,
       scale: baseScale * 1.25,
       duration: 120,
       yoyo: true,
       onComplete: () => {
-        this.tweens.add({
-          targets: sprite.image,
-          x: this.viewW + 40,
-          alpha: 0.2,
-          duration: 500,
-          ease: 'Sine.easeIn',
-          onComplete: () => sprite.image.destroy(),
-        });
+        if (stoolBound) {
+          // Restart the seated bob — they finished their drink, now they linger.
+          const restY = this.stoolY();
+          sprite.bobTween = this.tweens.add({
+            targets: sprite.image,
+            y: restY - 2,
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Steps(1)',
+          });
+          return;
+        }
+        if (seatIdx !== undefined) {
+          this.walkToTableSeat(sprite, seatIdx);
+        } else {
+          // No room — walk off-right.
+          this.tweens.add({
+            targets: sprite.image,
+            x: this.viewW + 40,
+            alpha: 0.2,
+            duration: 500,
+            ease: 'Sine.easeIn',
+            onComplete: () => sprite.image.destroy(),
+          });
+        }
       },
     });
     this.repackQueue();
+  }
+
+  private walkToTableSeat(sprite: CustomerSprite, seatIdx: number) {
+    const seat = TABLE_SEATS[seatIdx];
+    const targetX = this.viewW * seat.x;
+    const targetY = this.viewH * seat.y;
+    sprite.image.setFlipX(seat.faceLeft);
+    this.tweens.add({
+      targets: sprite.image,
+      x: targetX,
+      y: targetY,
+      duration: 700,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        // Settle in with a slow bob.
+        sprite.bobTween = this.tweens.add({
+          targets: sprite.image,
+          y: targetY - 2,
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Steps(1)',
+        });
+      },
+    });
+    const seated = sprite as CustomerSprite & { tableSeat: number };
+    seated.tableSeat = seatIdx;
+    this.tableSeated.push(seated);
+  }
+
+  private firstFreeTableSeat(): number | undefined {
+    const taken = new Set<number>();
+    for (const c of this.tableSeated) taken.add(c.tableSeat);
+    for (let i = 0; i < TABLE_SEATS.length; i++) if (!taken.has(i)) return i;
+    return undefined;
   }
 
   private walkoutCustomer(entry: ShiftEntry) {
