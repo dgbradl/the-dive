@@ -101,6 +101,7 @@ export class BarScene extends Phaser.Scene {
     this.load.image('sprite_generic', '/sprites/generic.png');
     this.load.image('tex_wood', '/textures/wood-paneling.png');
     this.load.image('tex_shelf', '/textures/bottle-shelf.png');
+    this.load.svg('wordmark_neon', '/brand/wordmark-neon.svg', { width: 220, height: 200 });
   }
 
   create() {
@@ -133,6 +134,22 @@ export class BarScene extends Phaser.Scene {
     this.add.tileSprite(0, this.viewH * 0.18, this.viewW, 56, 'tex_shelf')
       .setOrigin(0, 0)
       .setAlpha(0.85);
+
+    // "LAST CALL" framed neon sign mounted on the right side of the
+    // back wall, between the shelves and the bar. Drawn after the
+    // shelves so it sits in front; flickers every few seconds.
+    const neonSize = this.viewH * 0.18;
+    const neon = this.add.image(this.viewW * 0.85, this.viewH * 0.30, 'wordmark_neon');
+    neon.setScale(neonSize / neon.height);
+    this.tweens.add({
+      targets: neon,
+      alpha: { from: 1, to: 0.55 },
+      duration: 80,
+      yoyo: true,
+      repeatDelay: 3000,
+      repeat: -1,
+      ease: 'Steps(2)',
+    });
 
     // Bar counter — middle band.
     this.add.rectangle(this.viewW / 2, BAR_Y, this.viewW * 0.94, this.viewH * 0.10, COLORS.bar);

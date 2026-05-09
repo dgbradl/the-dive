@@ -8,7 +8,7 @@ interface Props {
 export function GameOverPanel({ state, onRestart }: Props) {
   return (
     <div className="panel game-over-panel">
-      <article className="game-over-card">
+      <article className="game-over-card grit-grain">
         <header className="masthead">
           <span className="masthead-title">FINAL NOTICE</span>
           <span className="masthead-day">Day {state.day}</span>

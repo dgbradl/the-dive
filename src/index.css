@@ -549,7 +549,10 @@ button.ghost {
   display: grid;
   grid-template-columns: 1fr 1.4fr 1fr;
   align-items: center;
-  background: var(--tavern-pitch);
+  background-color: var(--tavern-pitch);
+  background-image: url('/textures/etched-tile.png');
+  background-repeat: repeat;
+  background-blend-mode: overlay;
   color: var(--neon-tube);
   padding: 10px 14px;
   border-bottom: 2px solid var(--hairline);
@@ -872,8 +875,22 @@ button.ghost {
   pointer-events: none;
 }
 .newspaper::after {
-  /* punched holes / staple at the top — fake corner stamp */
+  /* faint water-stain ring in the bottom-left — old-bar charm */
   content: '';
+  position: absolute;
+  bottom: 12px;
+  left: 8px;
+  width: 80px;
+  height: 50px;
+  background-image: url('/textures/water-stain.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0.18;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+/* Small red corner stamp at the top-right (kept). */
+.newspaper-stamp {
   position: absolute;
   top: 6px;
   right: 8px;

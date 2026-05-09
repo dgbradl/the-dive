@@ -238,7 +238,7 @@ export function ShiftPanel({ report, onComplete }: Props) {
           <button className="skip-btn" onClick={skip}>Skip</button>
         </span>
       </div>
-      <div className="phaser-wrap grit-scanlines grit-vignette">
+      <div className="phaser-wrap grit-scanlines grit-vignette grit-haze">
         <div ref={containerRef} className="phaser-container" />
         <div className="cash-toasts">
           {toasts.map((t) => (
