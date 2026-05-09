@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import { BarScene } from './PhaserBarScene';
-import type { ShiftEntry, ShiftReport } from '../game/types';
+import type { ShiftEntry, ShiftPhase, ShiftReport } from '../game/types';
+import { defaultShiftConfig } from '../game/types';
 import { useCountUp } from './animation';
 import { playSfx } from './audio';
 import { MuteButton } from './MuteButton';
+import { ActionBar, ChalkboardHUD, DialogueLine, StatusStrip } from './ShiftHUD';
 
 interface CashToast {
   id: number;
@@ -29,6 +31,10 @@ export function ShiftPanel({ report, onComplete }: Props) {
   const [runningCash, setRunningCash] = useState(0);
   const [runningRep, setRunningRep] = useState(0);
   const [toasts, setToasts] = useState<CashToast[]>([]);
+  const [currentTick, setCurrentTick] = useState(1);
+  const [currentPhase, setCurrentPhase] = useState<ShiftPhase>('Early');
+  const [lastPour, setLastPour] = useState(0);
+  const [dialogueText, setDialogueText] = useState('Place looks dead. Let’s open up.');
   const logScrollRef = useRef<HTMLDivElement | null>(null);
   const toastIdRef = useRef(0);
 
@@ -75,6 +81,10 @@ export function ShiftPanel({ report, onComplete }: Props) {
     setRunningCash(0);
     setRunningRep(0);
     setToasts([]);
+    setCurrentTick(1);
+    setCurrentPhase('Early');
+    setLastPour(0);
+    setDialogueText('Place looks dead. Let’s open up.');
     sceneRef.current?.reset();
 
     const step = () => {
@@ -90,6 +100,11 @@ export function ShiftPanel({ report, onComplete }: Props) {
       repSoFar += entry.repDelta;
       setRunningCash(cashSoFar);
       setRunningRep(repSoFar);
+      if (entry.tick > 0) setCurrentTick(entry.tick);
+      if (entry.phase) setCurrentPhase(entry.phase);
+      if (entry.kind === 'Served' && entry.cashDelta > 0) setLastPour(entry.cashDelta);
+      const voiceLine = bartenderVoiceFor(entry);
+      if (voiceLine) setDialogueText(voiceLine);
       if (entry.cashDelta !== 0) emitToast(entry);
       sfxFor(entry);
       sceneRef.current?.handleEntry(entry);
@@ -132,8 +147,13 @@ export function ShiftPanel({ report, onComplete }: Props) {
 
   return (
     <div className="panel shift-panel">
-      <div className="shift-header">
-        <span>Day {report.day}</span>
+      <ChalkboardHUD
+        day={report.day}
+        phase={currentPhase}
+        tick={currentTick}
+        tickCount={defaultShiftConfig.tickCount}
+      />
+      <div className="shift-header compact">
         <span className="running-totals">
           <span className="running-cash">{`${cashSign}$${Math.abs(animatedCash)}`}</span>
           <span className="running-rep">{`rep ${repSign}${Math.abs(animatedRep)}`}</span>
@@ -156,13 +176,46 @@ export function ShiftPanel({ report, onComplete }: Props) {
           ))}
         </div>
       </div>
-      <div ref={logScrollRef} className="shift-log">
-        {logLines.map((line, idx) => (
-          <div key={idx} className="log-line">{line}</div>
-        ))}
-      </div>
+      <StatusStrip
+        till={Math.max(0, animatedCash)}
+        lastPour={lastPour}
+        tick={currentTick}
+        tickCount={defaultShiftConfig.tickCount}
+        phase={currentPhase}
+        heat={0}
+        damage={0}
+        damageItems=""
+      />
+      <DialogueLine speaker="Marv" text={dialogueText} />
+      <ActionBar />
+      <details className="shift-log-details">
+        <summary>Show shift log</summary>
+        <div ref={logScrollRef} className="shift-log">
+          {logLines.map((line, idx) => (
+            <div key={idx} className="log-line">{line}</div>
+          ))}
+        </div>
+      </details>
     </div>
   );
+}
+
+/**
+ * Pick a bartender-voice line for the current entry, or null if Marv
+ * stays quiet. Phase notes drive most of the dialogue today; later
+ * slices will surface richer barker reactions.
+ */
+function bartenderVoiceFor(entry: ShiftEntry): string | null {
+  if (entry.kind === 'Note' && entry.phase) {
+    if (entry.phase === 'Early') return 'Quiet so far. Lean into it.';
+    if (entry.phase === 'Prime') return 'Place is filling up. Keep moving.';
+    if (entry.phase === 'LastCall') return 'Last call. Watch the rowdy ones.';
+  }
+  if (entry.kind === 'Mishap') return 'Someone’s losing their grip.';
+  if (entry.kind === 'Walkout') return 'There goes one out the door.';
+  if (entry.kind === 'Event' && entry.cashDelta < 0) return 'That’s gonna leave a mark.';
+  if (entry.kind === 'Event' && entry.cashDelta > 0) return 'Now we’re cooking.';
+  return null;
 }
 
 function sfxFor(entry: ShiftEntry): void {
