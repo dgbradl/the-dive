@@ -172,6 +172,7 @@ export function runShift(
     heatAtClose: 0,
     damages: [],
     decisions: [],
+    rentPaid: 0,
   };
 
   let heat = clampHeat(state.heat);
@@ -650,7 +651,8 @@ export function runShift(
  */
 export function applyReport(state: GameState, report: ShiftReport): { state: GameState; report: ShiftReport } {
   const wages = state.hiredStaff.reduce((sum, h) => sum + h.wagePerDay, 0);
-  const annotated: ShiftReport = { ...report, wagesPaid: wages };
+  const rent = state.rentPerDay;
+  const annotated: ShiftReport = { ...report, wagesPaid: wages, rentPaid: rent };
 
   // Aggregate loyalty deltas + last-seen tracking per regular.
   const loyaltyDelta = new Map<string, number>();
@@ -677,7 +679,7 @@ export function applyReport(state: GameState, report: ShiftReport): { state: Gam
 
   const newState: GameState = {
     ...state,
-    cash: state.cash + report.cashDelta - wages,
+    cash: state.cash + report.cashDelta - wages - rent,
     reputation: Math.max(0, Math.min(100, state.reputation + report.repDelta)),
     regulars: updatedRegulars,
     heat: clampHeat(report.heatAtClose - HEAT.overnightDecay),

@@ -27,6 +27,7 @@ export function newGame(): GameState {
     nightlySpecialDrinkId: null,
     regulars: startingRegulars.map((r) => ({ ...r })),
     heat: 0,
+    rentPerDay: 40,
   };
 }
 
@@ -37,6 +38,7 @@ export function migrate(raw: unknown): GameState {
     ...s,
     regulars: Array.isArray(s.regulars) ? s.regulars : startingRegulars.map((r) => ({ ...r })),
     heat: typeof s.heat === 'number' ? s.heat : 0,
+    rentPerDay: typeof s.rentPerDay === 'number' ? s.rentPerDay : 40,
   } as GameState;
 }
 

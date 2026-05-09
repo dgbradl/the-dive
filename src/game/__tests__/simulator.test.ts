@@ -59,12 +59,13 @@ describe('runShift', () => {
     expect(r.entries.length).toBeGreaterThan(0);
   });
 
-  it('applyReport deducts wages and clamps reputation', () => {
+  it('applyReport deducts wages + rent and clamps reputation', () => {
     const s = freshState();
     const r = runShift(s, defaultShiftConfig, catalog, 42);
     const { state: next, report } = applyReport(s, r);
     expect(report.wagesPaid).toBe(30); // Marv only
-    expect(next.cash).toBe(s.cash + r.cashDelta - 30);
+    expect(report.rentPaid).toBe(s.rentPerDay);
+    expect(next.cash).toBe(s.cash + r.cashDelta - 30 - s.rentPerDay);
     expect(next.reputation).toBeGreaterThanOrEqual(0);
     expect(next.reputation).toBeLessThanOrEqual(100);
   });
@@ -125,6 +126,7 @@ function fixture(spec: StaffSpec[]): { state: GameState; catalog: GameCatalog } 
     nightlySpecialDrinkId: null,
     regulars: [],
     heat: 0,
+    rentPerDay: 0,
   };
   return { state, catalog: testCatalog };
 }
@@ -318,6 +320,7 @@ describe('staff traits', () => {
       heatAtClose: 0,
       damages: [],
       decisions: [],
+      rentPaid: 0,
     };
     s.day = 5;
     const { state: next } = applyReport(s, report);
@@ -391,7 +394,7 @@ describe('staff traits', () => {
     const dummyReport: ShiftReport = {
       day: 1, seed: 1, cashDelta: 0, repDelta: 0,
       customersServed: 0, customersLost: 0, wagesPaid: 0,
-      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [],
+      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [], rentPaid: 0,
     };
     const { state: next } = applyReport(f.state, dummyReport);
     // Overnight decay is 1.5 → 4.0 - 1.5 = 2.5, clamped to [0, 5].

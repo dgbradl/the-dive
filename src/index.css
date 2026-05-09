@@ -838,7 +838,8 @@ button.ghost {
   pointer-events: none;
 }
 
-.newspaper .masthead {
+.newspaper .masthead,
+.game-over-card .masthead {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -918,3 +919,72 @@ button.ghost {
 .newspaper-total.bad dd { color: #8a2a1a; }
 
 .results-panel button.primary { width: 100%; max-width: 280px; }
+
+/* ---------- Game over ---------- */
+.game-over-panel { justify-content: center; align-items: center; gap: 20px; padding: 20px; }
+.game-over-card {
+  width: 100%;
+  background: #e8d8b0;
+  color: #1a120a;
+  font-family: var(--font-note);
+  padding: 24px 22px 18px;
+  box-shadow: 0 0 0 2px var(--hairline), inset 0 0 0 1px rgba(248, 216, 160, 0.3),
+              4px 4px 0 0 var(--hairline);
+  position: relative;
+}
+.game-over-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, transparent 0, transparent 3px,
+    rgba(26, 18, 10, 0.02) 3px, rgba(26, 18, 10, 0.02) 4px);
+  pointer-events: none;
+}
+.game-over-headline {
+  font-family: var(--font-pixel);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  text-align: center;
+  margin: 8px 0 4px;
+  line-height: 1.2;
+  color: var(--stain-blood);
+  text-transform: uppercase;
+}
+.game-over-byline {
+  text-align: center;
+  font-family: var(--font-note);
+  font-size: 14px;
+  color: #4a3a26;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(26, 18, 10, 0.35);
+}
+.game-over-body {
+  font-family: var(--font-note);
+  font-size: 16px;
+  line-height: 1.55;
+  color: #1a120a;
+}
+.game-over-body p { margin: 0 0 10px; }
+.game-over-flavor { font-style: italic; color: #4a3a26; }
+.game-over-panel button.primary { width: 100%; max-width: 280px; }
+
+/* ---------- Milestone banner ---------- */
+.milestone-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--tavern-pitch);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--etch-1), var(--drop-press);
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-cream);
+}
+.milestone-banner.warning { color: var(--stain-cherry); border-color: var(--stain-cherry); }
+.milestone-label { flex: 1; min-width: 0; line-height: 1.4; }
+.milestone-days { color: var(--tavern-whiskey); font-size: 8px; }

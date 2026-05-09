@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { catalog } from './game/content';
+import { evaluateMilestoneFor } from './game/milestones';
 import { applyReport, runShift } from './game/simulator';
 import { clearSave, load, newGame, nextDaySeed, save } from './game/save';
 import { defaultShiftConfig, Station, StaffRole, type GameState, type ShiftReport } from './game/types';
 import { PlanningPanel } from './ui/PlanningPanel';
 import { ShiftPanel } from './ui/ShiftPanel';
 import { ResultsPanel } from './ui/ResultsPanel';
+import { GameOverPanel } from './ui/GameOverPanel';
 
-type Phase = 'planning' | 'shift' | 'results';
+type Phase = 'planning' | 'shift' | 'results' | 'gameOver';
 
 function naturalStation(role: StaffRole): Station {
   switch (role) {
@@ -39,13 +41,30 @@ export function App() {
   const onShiftComplete = useCallback(() => setPhase('results'), []);
 
   const advanceDay = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      day: s.day + 1,
-      rngSeed: nextDaySeed(s.rngSeed, s.day + 1),
-    }));
+    setState((s) => {
+      const next: GameState = {
+        ...s,
+        day: s.day + 1,
+        rngSeed: nextDaySeed(s.rngSeed, s.day + 1),
+      };
+      const outcome = evaluateMilestoneFor(next);
+      if (outcome?.kind === 'fail-lease') {
+        // Defer phase change — handled below in useEffect.
+        return { ...next, _leaseFailed: true } as GameState & { _leaseFailed?: boolean };
+      }
+      if (outcome?.kind === 'fail-rep') {
+        return { ...next, rentPerDay: outcome.newRent };
+      }
+      return next;
+    });
     setPhase('planning');
   }, []);
+
+  // After advancing day, if the lease check failed, transition to game over.
+  useEffect(() => {
+    const flagged = (state as GameState & { _leaseFailed?: boolean })._leaseFailed;
+    if (flagged) setPhase('gameOver');
+  }, [state]);
 
   const resetSave = useCallback(() => {
     clearSave();
@@ -140,6 +159,9 @@ export function App() {
       )}
       {phase === 'results' && lastReport && (
         <ResultsPanel report={lastReport} state={state} catalog={catalog} onNextDay={advanceDay} />
+      )}
+      {phase === 'gameOver' && (
+        <GameOverPanel state={state} onRestart={resetSave} />
       )}
     </div>
   );

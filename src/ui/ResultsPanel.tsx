@@ -12,9 +12,11 @@ interface Props {
 }
 
 export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
-  const net = report.cashDelta - report.wagesPaid;
+  const rent = report.rentPaid ?? 0;
+  const net = report.cashDelta - report.wagesPaid - rent;
   const headline = pickHeadline(net, report.customersServed, report.customersLost);
   const sentences = composeStory(report, state, catalog);
+  if (rent > 0) sentences.push(`Rent ate $${rent}.`);
 
   useEffect(() => {
     playSfx(net > 0 ? 'chime' : 'trombone');
