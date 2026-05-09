@@ -8,7 +8,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: [
+        'favicon.svg',
+        'sprites/*.png',
+        'textures/*.png',
+        'brand/*.svg',
+      ],
       manifest: {
         name: 'BarGame',
         short_name: 'BarGame',

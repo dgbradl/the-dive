@@ -2,19 +2,31 @@ import Phaser from 'phaser';
 import { catalog } from '../game/content';
 import type { ShiftEntry } from '../game/types';
 
+// Sepia Tavern palette (matches CSS tokens)
 const COLORS = {
-  bg: 0x1a0f1f,
-  bar: 0x4a2c1a,
-  barTop: 0x6b3e26,
-  door: 0x2a1f3a,
-  text: '#e8c065',
-  cheer: 0x6cd17a,
-  angry: 0xd16c6c,
+  bg: 0x0e0a06,           // tavern-pitch
+  bar: 0x4a3220,          // tavern-leather
+  barTop: 0x6a4a2e,       // tavern-tobacco
+  door: 0x261a10,         // tavern-oak
+  text: '#e8dcb8',        // ink-bone
+  amber: '#d8a55c',       // tavern-whiskey
+  cheerTint: 0xb88a4a,    // tavern-amber tint on cheer
+  angryTint: 0xc84a2a,    // stain-cherry
+  dim: '#8a7a5a',         // ink-dust
 };
 
+const ARCHETYPE_SPRITES: Record<string, string> = {
+  dive_regular: 'sprite_dive_regular',
+  lost_tourist: 'sprite_lost_tourist',
+  rowdy_college_kid: 'sprite_rowdy_college_kid',
+};
+const FALLBACK_SPRITE = 'sprite_generic';
+
 interface CustomerSprite {
-  text: Phaser.GameObjects.Text;
+  image: Phaser.GameObjects.Image;
+  nameLabel?: Phaser.GameObjects.Text;
   archetypeId: string;
+  regularId?: string;
 }
 
 export class BarScene extends Phaser.Scene {
@@ -27,40 +39,60 @@ export class BarScene extends Phaser.Scene {
     super('BarScene');
   }
 
+  preload() {
+    this.load.image('bartender_marv', '/sprites/marv.png');
+    this.load.image('sprite_dee', '/sprites/dee.png');
+    this.load.image('sprite_skeeter', '/sprites/skeeter.png');
+    this.load.image('sprite_dive_regular', '/sprites/dive_regular.png');
+    this.load.image('sprite_lost_tourist', '/sprites/lost_tourist.png');
+    this.load.image('sprite_rowdy_college_kid', '/sprites/rowdy_college_kid.png');
+    this.load.image('sprite_generic', '/sprites/generic.png');
+    this.load.image('tex_wood', '/textures/wood-paneling.png');
+    this.load.image('tex_shelf', '/textures/bottle-shelf.png');
+  }
+
   create() {
     const cam = this.cameras.main;
     this.viewW = cam.width;
     this.viewH = cam.height;
     cam.setBackgroundColor(COLORS.bg);
 
-    // Bar counter — bottom-ish
-    const barY = this.viewH * 0.7;
-    this.add.rectangle(this.viewW / 2, barY, this.viewW * 0.85, this.viewH * 0.12, COLORS.bar);
-    this.add.rectangle(this.viewW / 2, barY - this.viewH * 0.06, this.viewW * 0.85, this.viewH * 0.01, COLORS.barTop);
+    // Wood-paneling floor + back wall
+    this.add.tileSprite(0, 0, this.viewW, this.viewH, 'tex_wood').setOrigin(0, 0).setAlpha(0.85);
+
+    // Bottle shelf along the top
+    const shelf = this.add.image(this.viewW / 2, this.viewH * 0.18, 'tex_shelf');
+    const shelfScale = (this.viewW * 0.95) / shelf.width;
+    shelf.setScale(shelfScale);
+
+    // Bar counter — bottom-ish (kept as geometry until we get a counter sprite)
+    const barY = this.viewH * 0.72;
+    this.add.rectangle(this.viewW / 2, barY, this.viewW * 0.92, this.viewH * 0.14, COLORS.bar);
+    this.add.rectangle(this.viewW / 2, barY - this.viewH * 0.07, this.viewW * 0.92, this.viewH * 0.012, COLORS.barTop);
 
     // Door — left edge
-    this.add.rectangle(this.viewW * 0.07, this.viewH * 0.45, this.viewW * 0.08, this.viewH * 0.18, COLORS.door);
-    this.add.text(this.viewW * 0.07, this.viewH * 0.32, 'door', {
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      color: '#7a6a8a',
+    this.add.rectangle(this.viewW * 0.07, this.viewH * 0.5, this.viewW * 0.08, this.viewH * 0.20, COLORS.door);
+    this.add.text(this.viewW * 0.07, this.viewH * 0.36, 'DOOR', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '8px',
+      color: COLORS.dim,
     }).setOrigin(0.5);
 
     // Bartender (Marv) behind the bar
-    this.add.text(this.viewW / 2, barY + this.viewH * 0.02, '🧑‍🍳', {
-      fontSize: '32px',
-    }).setOrigin(0.5);
-    this.add.text(this.viewW / 2, barY + this.viewH * 0.07, 'Marv', {
-      fontFamily: 'monospace',
-      fontSize: '10px',
-      color: '#9a8a6a',
+    const marv = this.add.image(this.viewW / 2, barY - this.viewH * 0.02, 'bartender_marv').setOrigin(0.5, 1);
+    const marvScale = (this.viewH * 0.22) / marv.height;
+    marv.setScale(marvScale);
+    this.add.text(this.viewW / 2, barY + this.viewH * 0.06, 'MARV', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '8px',
+      color: COLORS.dim,
     }).setOrigin(0.5);
 
     // Banner space at top for events
-    this.bannerText = this.add.text(this.viewW / 2, this.viewH * 0.08, '', {
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      color: COLORS.text,
+    this.bannerText = this.add.text(this.viewW / 2, this.viewH * 0.05, '', {
+      fontFamily: '"Press Start 2P", monospace',
+      fontSize: '9px',
+      color: COLORS.amber,
       align: 'center',
       wordWrap: { width: this.viewW * 0.9 },
     }).setOrigin(0.5);
@@ -69,103 +101,136 @@ export class BarScene extends Phaser.Scene {
   handleEntry(entry: ShiftEntry) {
     switch (entry.kind) {
       case 'CustomerArrived':
-        this.spawnCustomer(entry.customerArchetypeId);
+        this.spawnCustomer(entry);
         break;
       case 'Served':
-        this.serveCustomer(entry.customerArchetypeId);
+        this.serveCustomer(entry);
         break;
       case 'Walkout':
-        this.walkoutCustomer(entry.customerArchetypeId);
+        this.walkoutCustomer(entry);
         break;
       case 'Mishap':
         this.shake();
-        this.flashBanner(entry.text, '#d16c6c');
+        this.flashBanner(entry.text, '#c84a2a'); // stain-cherry
         break;
       case 'Event':
-        this.flashBanner(entry.text, '#e8c065');
+        this.flashBanner(entry.text, '#d8a55c'); // tavern-whiskey
         break;
       case 'Note':
       case 'Wages':
-        this.flashBanner(entry.text, '#9aa6c2');
+        this.flashBanner(entry.text, '#c8b890'); // ink-cream
         break;
     }
   }
 
   reset() {
-    for (const c of this.waiting) c.text.destroy();
+    for (const c of this.waiting) {
+      c.image.destroy();
+      c.nameLabel?.destroy();
+    }
     this.waiting = [];
     if (this.bannerText) this.bannerText.text = '';
   }
 
-  private spawnCustomer(archetypeId?: string) {
+  private spriteKey(archetypeId?: string): string {
+    if (archetypeId && ARCHETYPE_SPRITES[archetypeId]) return ARCHETYPE_SPRITES[archetypeId];
+    return FALLBACK_SPRITE;
+  }
+
+  private spawnCustomer(entry: ShiftEntry) {
+    const archetypeId = entry.customerArchetypeId;
     const arch = archetypeId ? catalog.customerArchetypes.find((a) => a.id === archetypeId) : undefined;
-    const emoji = arch?.emoji ?? '🙂';
 
     const startX = this.viewW * 0.07;
     const y = this.viewH * 0.55;
 
-    const text = this.add.text(startX, y, emoji, { fontSize: '28px' }).setOrigin(0.5);
-    const sprite: CustomerSprite = { text, archetypeId: arch?.id ?? 'unknown' };
+    const image = this.add.image(startX, y, this.spriteKey(archetypeId)).setOrigin(0.5, 1);
+    const targetH = this.viewH * 0.18;
+    image.setScale(targetH / image.height);
+
+    let nameLabel: Phaser.GameObjects.Text | undefined;
+    if (entry.regularId && entry.customerDisplayName) {
+      nameLabel = this.add.text(startX, y - targetH - 4, entry.customerDisplayName.toUpperCase(), {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '8px',
+        color: COLORS.amber,
+      }).setOrigin(0.5, 1);
+    }
+
+    const sprite: CustomerSprite = {
+      image,
+      nameLabel,
+      archetypeId: arch?.id ?? 'unknown',
+      regularId: entry.regularId,
+    };
     this.waiting.push(sprite);
 
     const targetX = this.queueX(this.waiting.length - 1);
-    this.tweens.add({
-      targets: text,
-      x: targetX,
-      duration: 350,
-      ease: 'Sine.easeOut',
-    });
+    this.tweens.add({ targets: image, x: targetX, duration: 350, ease: 'Sine.easeOut' });
+    if (nameLabel) {
+      this.tweens.add({ targets: nameLabel, x: targetX, duration: 350, ease: 'Sine.easeOut' });
+    }
   }
 
-  private serveCustomer(archetypeId?: string) {
-    const idx = this.findWaitingIndex(archetypeId);
+  private serveCustomer(entry: ShiftEntry) {
+    const idx = this.findWaitingIndex(entry);
     if (idx === -1) return;
     const sprite = this.waiting[idx];
     this.waiting.splice(idx, 1);
 
-    // Cheer effect
+    const baseScale = sprite.image.scale;
+    sprite.nameLabel?.destroy();
+    // Cheer effect — quick scale pulse, then walk off-right
     this.tweens.add({
-      targets: sprite.text,
-      scale: 1.4,
+      targets: sprite.image,
+      scale: baseScale * 1.25,
       duration: 120,
       yoyo: true,
       onComplete: () => {
-        // Walk off to the right
         this.tweens.add({
-          targets: sprite.text,
+          targets: sprite.image,
           x: this.viewW + 40,
           alpha: 0.2,
           duration: 500,
           ease: 'Sine.easeIn',
-          onComplete: () => sprite.text.destroy(),
+          onComplete: () => sprite.image.destroy(),
         });
       },
     });
     this.repackQueue();
   }
 
-  private walkoutCustomer(archetypeId?: string) {
-    const idx = this.findWaitingIndex(archetypeId);
+  private walkoutCustomer(entry: ShiftEntry) {
+    const idx = this.findWaitingIndex(entry);
     if (idx === -1) return;
     const sprite = this.waiting[idx];
     this.waiting.splice(idx, 1);
 
-    sprite.text.setColor('#d16c6c');
+    sprite.image.setTint(COLORS.angryTint);
+    sprite.nameLabel?.destroy();
     this.tweens.add({
-      targets: sprite.text,
+      targets: sprite.image,
       x: -40,
       alpha: 0.2,
       duration: 450,
       ease: 'Sine.easeIn',
-      onComplete: () => sprite.text.destroy(),
+      onComplete: () => sprite.image.destroy(),
     });
     this.repackQueue();
   }
 
-  private findWaitingIndex(archetypeId?: string): number {
-    if (!archetypeId) return this.waiting.length > 0 ? 0 : -1;
-    const idx = this.waiting.findIndex((c) => c.archetypeId === archetypeId);
-    return idx === -1 && this.waiting.length > 0 ? 0 : idx;
+  private findWaitingIndex(entry: ShiftEntry): number {
+    // Prefer named regulars by id; fall back to archetype match; fall back to head.
+    if (entry.regularId) {
+      const exact = this.waiting.findIndex((c) => c.regularId === entry.regularId);
+      if (exact !== -1) return exact;
+    }
+    const archetypeId = entry.customerArchetypeId;
+    if (archetypeId) {
+      const byArch = this.waiting.findIndex((c) => c.archetypeId === archetypeId);
+      if (byArch !== -1) return byArch;
+    }
+    return this.waiting.length > 0 ? 0 : -1;
   }
 
   private queueX(index: number): number {
@@ -177,12 +242,10 @@ export class BarScene extends Phaser.Scene {
 
   private repackQueue() {
     for (let i = 0; i < this.waiting.length; i++) {
-      this.tweens.add({
-        targets: this.waiting[i].text,
-        x: this.queueX(i),
-        duration: 220,
-        ease: 'Sine.easeOut',
-      });
+      const x = this.queueX(i);
+      this.tweens.add({ targets: this.waiting[i].image, x, duration: 220, ease: 'Sine.easeOut' });
+      const label = this.waiting[i].nameLabel;
+      if (label) this.tweens.add({ targets: label, x, duration: 220, ease: 'Sine.easeOut' });
     }
   }
 

@@ -5,9 +5,22 @@ import {
   type Drink,
   type GameCatalog,
   type RandomEvent,
+  type Regular,
   type StaffArchetype,
   type Upgrade,
 } from './types';
+
+/**
+ * Starter named regulars. Loyalty starts at 0 (neutral); spriteId reuses
+ * archetype art for now — Wheezer / Rook share the dive_regular sprite,
+ * Mike shares rowdy_college_kid, Doc reuses lost_tourist as a stand-in.
+ */
+export const startingRegulars: Regular[] = [
+  { id: 'reg_wheezer', displayName: 'Wheezer', archetypeId: 'dive_regular',      spriteId: 'dive_regular',      loyalty: 0, lastSeenDay: 0 },
+  { id: 'reg_rook',    displayName: 'Rook',    archetypeId: 'dive_regular',      spriteId: 'dive_regular',      loyalty: 0, lastSeenDay: 0 },
+  { id: 'reg_mike',    displayName: 'Mike',    archetypeId: 'rowdy_college_kid', spriteId: 'rowdy_college_kid', loyalty: 0, lastSeenDay: 0 },
+  { id: 'reg_doc',     displayName: 'Doc',     archetypeId: 'lost_tourist',      spriteId: 'lost_tourist',      loyalty: 0, lastSeenDay: 0 },
+];
 
 export const drinks: Drink[] = [
   { id: 'pbr', displayName: 'PBR', costToMake: 1, suggestedPrice: 4, prepTicks: 1, quality: 0.3 },

@@ -1,6 +1,8 @@
+import { startingRegulars } from './content';
 import { Station, type GameState } from './types';
 
-const STORAGE_KEY = 'bargame.save.v1';
+const STORAGE_KEY = 'bargame.save.v2';
+const STORAGE_KEY_V1 = 'bargame.save.v1';
 
 export function newGame(): GameState {
   const seed = (Math.random() * 0x7fffffff) | 0 || 1337;
@@ -23,14 +25,32 @@ export function newGame(): GameState {
     ownedUpgradeIds: [],
     assignments: [{ staffInstanceId: marvId, station: Station.Bar }],
     nightlySpecialDrinkId: null,
+    regulars: startingRegulars.map((r) => ({ ...r })),
   };
+}
+
+export function migrate(raw: unknown): GameState {
+  // Defensive: synthesize missing v2 fields on legacy saves.
+  const s = raw as Partial<GameState>;
+  return {
+    ...s,
+    regulars: Array.isArray(s.regulars) ? s.regulars : startingRegulars.map((r) => ({ ...r })),
+  } as GameState;
 }
 
 export function load(): GameState | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as GameState;
+    const v2 = localStorage.getItem(STORAGE_KEY);
+    if (v2) return migrate(JSON.parse(v2));
+    const v1 = localStorage.getItem(STORAGE_KEY_V1);
+    if (v1) {
+      const upgraded = migrate(JSON.parse(v1));
+      // Migrate forward and clear the old slot.
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(upgraded));
+      localStorage.removeItem(STORAGE_KEY_V1);
+      return upgraded;
+    }
+    return null;
   } catch {
     return null;
   }

@@ -105,6 +105,20 @@ export interface HiredStaff {
   wagePerDay: number;
 }
 
+/**
+ * Named recurring customer. Same archetype as one of the
+ * `CustomerArchetype`s, but persists across days with a loyalty score.
+ * When loyalty < 0 the regular doesn't spawn until they recover.
+ */
+export interface Regular {
+  id: string;            // stable id, used in save + entries
+  displayName: string;   // "Wheezer", "Rook", etc.
+  archetypeId: string;   // mirrors a CustomerArchetype.id
+  spriteId: string;      // sprite key suffix; reuses archetype art for now
+  loyalty: number;       // -10..10 typical range
+  lastSeenDay: number;   // day index they last walked in (0 = never)
+}
+
 export interface DrinkPriceOverride {
   drinkId: string;
   price: number;
@@ -125,6 +139,7 @@ export interface GameState {
   ownedUpgradeIds: string[];
   assignments: StaffAssignment[];
   nightlySpecialDrinkId: string | null;
+  regulars: Regular[];
 }
 
 export interface GameCatalog {
@@ -169,6 +184,10 @@ export interface ShiftEntry {
   /** Optional refs for the Phaser visualizer. */
   customerArchetypeId?: string;
   staffInstanceId?: string;
+  /** Named regular instance, if this entry refers to one. */
+  regularId?: string;
+  /** Display name of the customer/regular for visualizers. */
+  customerDisplayName?: string;
   /** Set on phase-change Notes so the visualizer can react. */
   phase?: ShiftPhase;
 }

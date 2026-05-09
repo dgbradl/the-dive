@@ -72,16 +72,17 @@ src/
 
 ## Where we are
 
-- Slices 1–5 of the backlog are shipped (hire/fire UI, drink prices +
-  upgrade shop, staff traits firing in the simulator, shift phases + rep
-  tiers gating new customer archetypes, juice pass: end-of-day newspaper
-  + count-up totals + floating cash toasts + procedural Web Audio SFX
-  with a global mute toggle).
-- The "first five" sequencing from `docs/BACKLOG.md` is complete. Next
-  direction is a choice between depth (B5 inventory, B6 crisis decisions,
-  B7 regulars-with-loyalty, B9 weekly milestone goals) and remaining
-  polish (C4 Phaser scene polish, C5 thought bubbles, C7 pixel art).
-  See `docs/BACKLOG.md`.
+- Slices 1–7 of the backlog are shipped. Slice 7 added persistent named
+  regulars (Wheezer / Rook / Mike / Doc) — per-regular loyalty in
+  `GameState.regulars`, picked over anonymous archetype spawns 60% of
+  the time when eligible (loyalty ≥ 0); +1/-3 on serve/walkout via
+  `applyReport`; save format bumped v1 → v2 with forward migration.
+  Newspaper names them. Planning panel has a roster with portraits and
+  a loyalty meter.
+- Next up is **Slice 8 — Action bar / crisis decisions** (B6):
+  interactive shift decisions (POUR / CUT OFF / 86 HIM / RING UP /
+  DOOR), `runShift` evolves to two-phase replay so the simulator stays
+  pure. See `docs/BACKLOG.md`.
 
 ## Don't
 
