@@ -1,47 +1,53 @@
-import type { ShiftReport } from '../game/types';
+import type { GameCatalog, GameState, ShiftReport } from '../game/types';
+import { composeStory, pickHeadline } from './newspaper';
 
 interface Props {
   report: ShiftReport;
+  state: GameState;
+  catalog: GameCatalog;
   onNextDay: () => void;
 }
 
-export function ResultsPanel({ report, onNextDay }: Props) {
+export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
   const net = report.cashDelta - report.wagesPaid;
   const headline = pickHeadline(net, report.customersServed, report.customersLost);
+  const sentences = composeStory(report, state, catalog);
 
   return (
     <div className="panel results-panel">
-      <h1 className="headline">{headline}</h1>
-      <div className="results-grid">
-        <Stat label="Earnings" value={`$${report.cashDelta}`} positive={report.cashDelta >= 0} />
-        <Stat label="Wages" value={`-$${report.wagesPaid}`} positive={false} />
-        <Stat label="Net" value={`$${net}`} positive={net >= 0} />
-        <Stat label="Rep" value={signed(report.repDelta)} positive={report.repDelta >= 0} />
-        <Stat label="Served" value={String(report.customersServed)} positive />
-        <Stat label="Walkouts" value={String(report.customersLost)} positive={report.customersLost === 0} />
-      </div>
+      <article className="newspaper">
+        <header className="masthead">
+          <span className="masthead-title">THE DIVE TIMES</span>
+          <span className="masthead-day">Day {report.day}</span>
+        </header>
+        <h1 className="newspaper-headline">{headline.toUpperCase()}</h1>
+        <div className="newspaper-byline">— from the floor</div>
+        <div className="newspaper-body">
+          {sentences.map((s, i) => (
+            <p key={i}>{s}</p>
+          ))}
+        </div>
+        <dl className="newspaper-totals">
+          <Total label="Net" value={`$${net}`} good={net >= 0} />
+          <Total label="Rep" value={signed(report.repDelta)} good={report.repDelta >= 0} />
+          <Total label="Served" value={String(report.customersServed)} good />
+          <Total label="Walkouts" value={String(report.customersLost)} good={report.customersLost === 0} />
+        </dl>
+      </article>
       <button className="primary" onClick={onNextDay}>Lock up</button>
     </div>
   );
 }
 
-function Stat({ label, value, positive }: { label: string; value: string; positive: boolean }) {
+function Total({ label, value, good }: { label: string; value: string; good: boolean }) {
   return (
-    <div className={`result-stat ${positive ? 'good' : 'bad'}`}>
-      <div className="result-label">{label}</div>
-      <div className="result-value">{value}</div>
+    <div className={`newspaper-total ${good ? 'good' : 'bad'}`}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   );
 }
 
 function signed(n: number): string {
   return n > 0 ? `+${n}` : `${n}`;
-}
-
-function pickHeadline(net: number, served: number, lost: number): string {
-  if (net > 80) return 'Banner night.';
-  if (net > 0) return 'Solid night.';
-  if (lost > served) return 'Brutal.';
-  if (net === 0) return 'Broke even.';
-  return 'Rough one.';
 }

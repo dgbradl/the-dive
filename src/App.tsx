@@ -139,7 +139,7 @@ export function App() {
         <ShiftPanel report={lastReport} onComplete={onShiftComplete} />
       )}
       {phase === 'results' && lastReport && (
-        <ResultsPanel report={lastReport} onNextDay={advanceDay} />
+        <ResultsPanel report={lastReport} state={state} catalog={catalog} onNextDay={advanceDay} />
       )}
     </div>
   );
