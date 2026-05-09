@@ -153,8 +153,8 @@ describe('staff traits', () => {
   it('Quick at Bar serves more customers on average', () => {
     const base = fixture([{ traits: [], station: Station.Bar }]);
     const quick = fixture([{ traits: ['Quick'], station: Station.Bar }]);
-    const baseAvg = avgOver(80, (s) => runShift(base.state, defaultShiftConfig, base.catalog, s).customersServed);
-    const quickAvg = avgOver(80, (s) => runShift(quick.state, defaultShiftConfig, quick.catalog, s).customersServed);
+    const baseAvg = avgOver(200, (s) => runShift(base.state, defaultShiftConfig, base.catalog, s).customersServed);
+    const quickAvg = avgOver(200, (s) => runShift(quick.state, defaultShiftConfig, quick.catalog, s).customersServed);
     expect(quickAvg).toBeGreaterThan(baseAvg);
   });
 
@@ -494,6 +494,63 @@ describe('staff traits', () => {
     applyDecisionOverride(r, 0, defaultIdx);
     const after = JSON.stringify(r.entries[r.decisions[0].entryIndex]);
     expect(after).toBe(before);
+  });
+
+  it('health inspector fires as a Decision with Bribe + Charm options', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    let foundInspector: ShiftReport | null = null;
+    for (let seed = 0; seed < 200 && !foundInspector; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 96000 + seed);
+      const inspectorDecision = r.decisions.find((d) =>
+        r.entries[d.entryIndex]?.text?.toLowerCase().includes('inspector'),
+      );
+      if (inspectorDecision) foundInspector = r;
+    }
+    expect(foundInspector).not.toBeNull();
+    const inspectorDecision = foundInspector!.decisions.find((d) =>
+      foundInspector!.entries[d.entryIndex]?.text?.toLowerCase().includes('inspector'),
+    )!;
+    const labels = inspectorDecision.options.map((o) => o.label);
+    expect(labels).toContain('Take Fine');
+    expect(labels).toContain('Bribe');
+    expect(labels).toContain('Charm');
+    // Default outcome (Take Fine) should be applied to the entry: -25 cash, -1 rep.
+    const entry = foundInspector!.entries[inspectorDecision.entryIndex];
+    expect(entry.cashDelta).toBe(-25);
+    expect(entry.repDelta).toBe(-1);
+  });
+
+  it('inspector Bribe gate flips with cash; Charm gate flips with Charming on Floor', () => {
+    // Fresh fixture has $200 → cash-50 satisfied. Charming-on-Floor unsatisfied.
+    const broke = fixture([{ traits: [], station: Station.Bar }]);
+    broke.state.cash = 10;
+    const charming = fixture([
+      { traits: [], station: Station.Bar },
+      { traits: ['Charming'], station: Station.Floor, role: StaffRole.Server },
+    ]);
+    let brokeGates: string[] | null = null;
+    let charmingGates: string[] | null = null;
+    for (let seed = 0; seed < 250 && (!brokeGates || !charmingGates); seed++) {
+      if (!brokeGates) {
+        const r = runShift(broke.state, defaultShiftConfig, broke.catalog, 97000 + seed);
+        const inspector = r.decisions.find((d) =>
+          r.entries[d.entryIndex]?.text?.toLowerCase().includes('inspector'),
+        );
+        if (inspector) brokeGates = inspector.satisfiedGates;
+      }
+      if (!charmingGates) {
+        const r = runShift(charming.state, defaultShiftConfig, charming.catalog, 97000 + seed);
+        const inspector = r.decisions.find((d) =>
+          r.entries[d.entryIndex]?.text?.toLowerCase().includes('inspector'),
+        );
+        if (inspector) charmingGates = inspector.satisfiedGates;
+      }
+    }
+    expect(brokeGates).not.toBeNull();
+    expect(charmingGates).not.toBeNull();
+    expect(brokeGates).not.toContain('cash-50');
+    expect(charmingGates).toContain('charming-on-floor');
+    expect(charmingGates).toContain('cash-50'); // fixture state cash=200 by default
   });
 
   it('Charming on Door reduces avg crisis cash penalty', () => {

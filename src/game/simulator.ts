@@ -518,6 +518,30 @@ export function runShift(
       if (ev.requiresNotUpgradeId && state.ownedUpgradeIds.includes(ev.requiresNotUpgradeId)) continue;
 
       if (rng.next() < ev.perTickChance) {
+        // Decision-flavored events take over the slot when the player has
+        // budget. Otherwise they fall through to the default-option outcome.
+        if (ev.decisionOptions && ev.decisionOptions.length > 0 && decisionsAvailable(tick)) {
+          const def = ev.decisionOptions.find((o) => o.isDefault) ?? ev.decisionOptions[0];
+          const idx = report.entries.length;
+          addE({
+            tick,
+            kind: 'Decision',
+            text: `${ev.displayName} — ${def.narrative}`,
+            cashDelta: def.cashDelta,
+            repDelta: def.repDelta,
+            decisionIndex: report.decisions.length,
+          });
+          if (def.heatDelta) heat = clampHeat(heat + def.heatDelta);
+          report.decisions.push({
+            entryIndex: idx,
+            prompt: ev.decisionPrompt ?? `${ev.displayName} — what's the call?`,
+            options: ev.decisionOptions,
+            satisfiedGates: computeGates(),
+          });
+          lastDecisionTick = tick;
+          break;
+        }
+
         let cd = ev.cashDelta;
         let rd = ev.repDelta;
         let narrative = ev.narrative;
