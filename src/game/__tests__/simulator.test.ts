@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { catalog } from '../content';
-import { applyReport, runShift } from '../simulator';
+import { applyDecisionOverride, applyReport, runShift } from '../simulator';
 import { newGame } from '../save';
 import {
   defaultShiftConfig,
@@ -317,6 +317,7 @@ describe('staff traits', () => {
       ],
       heatAtClose: 0,
       damages: [],
+      decisions: [],
     };
     s.day = 5;
     const { state: next } = applyReport(s, report);
@@ -390,11 +391,95 @@ describe('staff traits', () => {
     const dummyReport: ShiftReport = {
       day: 1, seed: 1, cashDelta: 0, repDelta: 0,
       customersServed: 0, customersLost: 0, wagesPaid: 0,
-      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }],
+      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [],
     };
     const { state: next } = applyReport(f.state, dummyReport);
     // Overnight decay is 1.5 → 4.0 - 1.5 = 2.5, clamped to [0, 5].
     expect(next.heat).toBeCloseTo(2.5, 5);
+  });
+
+  it('emits at most one heat-threshold Decision per shift, when heat crosses 3.5', () => {
+    const noStaff = fixture([]); // walkouts pile up → heat surely crosses
+    let totalDecisions = 0;
+    let trialsWithDecision = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const r = runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 90000 + seed);
+      const decisionEntries = r.entries.filter((e) => e.kind === 'Decision');
+      expect(decisionEntries.length).toBeLessThanOrEqual(1);
+      totalDecisions += decisionEntries.length;
+      if (decisionEntries.length > 0) {
+        trialsWithDecision++;
+        const decision = r.decisions[decisionEntries[0].decisionIndex!];
+        expect(decision.options.some((o) => o.key === 'pour' && o.isDefault)).toBe(true);
+      }
+    }
+    expect(totalDecisions).toBeGreaterThan(0); // at least one trial fired
+    expect(trialsWithDecision).toBeGreaterThan(0);
+  });
+
+  it('86 Him option requires a bouncer on the door', () => {
+    const noStaff = fixture([]);
+    const withBouncer = fixture([{ traits: [], station: Station.Door, role: StaffRole.Bouncer }]);
+    let foundUngated: boolean | undefined;
+    let foundGated: boolean | undefined;
+    for (let seed = 0; seed < 30; seed++) {
+      const r1 = runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 91000 + seed);
+      if (r1.decisions.length > 0 && foundUngated === undefined) {
+        foundUngated = r1.decisions[0].satisfiedGates.includes('bouncer-on-door');
+      }
+      const r2 = runShift(withBouncer.state, defaultShiftConfig, withBouncer.catalog, 91000 + seed);
+      if (r2.decisions.length > 0 && foundGated === undefined) {
+        foundGated = r2.decisions[0].satisfiedGates.includes('bouncer-on-door');
+      }
+    }
+    expect(foundUngated).toBe(false);
+    expect(foundGated).toBe(true);
+  });
+
+  it('applyDecisionOverride replaces entry text + deltas, propagates heat shift', () => {
+    const noStaff = fixture([]);
+    let report: ShiftReport | null = null;
+    for (let seed = 0; seed < 60 && !report; seed++) {
+      const r = runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 92000 + seed);
+      if (r.decisions.length > 0) report = r;
+    }
+    expect(report).not.toBeNull();
+    const r = report!;
+
+    const decision = r.decisions[0];
+    const cutOffIdx = decision.options.findIndex((o) => o.key === 'cut-off');
+    expect(cutOffIdx).toBeGreaterThanOrEqual(0);
+
+    const entry = r.entries[decision.entryIndex];
+    const heatBefore = entry.heatAfter ?? 0;
+    const reportCashBefore = r.cashDelta;
+
+    applyDecisionOverride(r, 0, cutOffIdx);
+
+    expect(entry.kind).toBe('Decision');
+    expect(entry.text).toMatch(/cut off/i);
+    expect(entry.cashDelta).toBe(0);
+    expect(entry.repDelta).toBe(0);
+    // Heat should be lower than before by 1.5 (clamped).
+    expect(entry.heatAfter).toBeLessThan(heatBefore);
+    // Aggregate cashDelta unchanged (option is 0/0).
+    expect(r.cashDelta).toBe(reportCashBefore);
+  });
+
+  it('applyDecisionOverride is a no-op when picking the default option', () => {
+    const f = fixture([]);
+    let report: ShiftReport | null = null;
+    for (let seed = 0; seed < 60 && !report; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 93000 + seed);
+      if (r.decisions.length > 0) report = r;
+    }
+    expect(report).not.toBeNull();
+    const r = report!;
+    const defaultIdx = r.decisions[0].options.findIndex((o) => o.isDefault);
+    const before = JSON.stringify(r.entries[r.decisions[0].entryIndex]);
+    applyDecisionOverride(r, 0, defaultIdx);
+    const after = JSON.stringify(r.entries[r.decisions[0].entryIndex]);
+    expect(after).toBe(before);
   });
 
   it('Charming on Door reduces avg crisis cash penalty', () => {

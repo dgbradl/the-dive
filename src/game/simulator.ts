@@ -2,10 +2,13 @@ import { Rng } from './rng';
 import {
   Station,
   type CustomerArchetype,
+  type DecisionGate,
+  type DecisionOption,
   type Drink,
   type GameCatalog,
   type GameState,
   type HiredStaff,
+  type PendingDecision,
   type Regular,
   type ShiftConfig,
   type ShiftEntry,
@@ -14,6 +17,8 @@ import {
   type StaffArchetype,
   type StaffTrait,
 } from './types';
+
+const HEAT_DECISION_THRESHOLD = 3.5;
 
 /** Chance of using a named regular when one is eligible for the spawning archetype. */
 const REGULAR_PICK_CHANCE = 0.6;
@@ -163,13 +168,80 @@ export function runShift(
     entries: [],
     heatAtClose: 0,
     damages: [],
+    decisions: [],
   };
 
   let heat = clampHeat(state.heat);
+  let heatDecisionEmitted = false;
 
   /** Push an entry onto the report, stamping it with the current heat reading. */
   const addE = (e: Omit<ShiftEntry, 'heatAfter'>) => {
     addEntry(report, { ...e, heatAfter: heat });
+  };
+
+  const computeGates = (): DecisionGate[] => {
+    const gates: DecisionGate[] = [];
+    if (stations.door.length > 0) gates.push('bouncer-on-door');
+    if (withTrait(stations.floor, 'Charming').length > 0) gates.push('charming-on-floor');
+    if (state.cash >= 50) gates.push('cash-50');
+    return gates;
+  };
+
+  const buildHeatDecision = (tick: number): { entry: Omit<ShiftEntry, 'heatAfter'>; pending: PendingDecision } => {
+    const gates = computeGates();
+    const options: DecisionOption[] = [
+      {
+        key: 'pour',
+        label: 'Pour',
+        cashDelta: 0,
+        repDelta: 0,
+        narrative: 'Marv keeps pouring. Watch the rowdy.',
+        isDefault: true,
+      },
+      {
+        key: 'cut-off',
+        label: 'Cut Off',
+        cashDelta: 0,
+        repDelta: 0,
+        heatDelta: -1.5,
+        narrative: 'Cut off — they grumble, finish their beer, and leave.',
+      },
+      {
+        key: 'eighty-six',
+        label: '86 Him',
+        requires: 'bouncer-on-door',
+        cashDelta: 0,
+        repDelta: -1,
+        heatDelta: -2,
+        narrative: 'Bouncer walks them out — heat drops, room exhales.',
+      },
+    ];
+    const idx = report.entries.length; // entry inserted next
+    return {
+      entry: {
+        tick,
+        kind: 'Decision',
+        text: 'Marv: Rowdy at the bar — what’s the call?',
+        cashDelta: 0,
+        repDelta: 0,
+        decisionIndex: report.decisions.length,
+      },
+      pending: {
+        entryIndex: idx,
+        prompt: 'Rowdy at the bar — what’s the call?',
+        options,
+        satisfiedGates: gates,
+      },
+    };
+  };
+
+  const maybeEmitHeatDecision = (tick: number) => {
+    if (heatDecisionEmitted) return;
+    if (heat < HEAT_DECISION_THRESHOLD) return;
+    const { entry, pending } = buildHeatDecision(tick);
+    addE(entry);
+    report.decisions.push(pending);
+    heatDecisionEmitted = true;
   };
 
   const archetypeHeat = (archetypeId?: string): number => {
@@ -282,6 +354,7 @@ export function runShift(
           regularId: regular?.id,
           customerDisplayName: arrivalName,
         });
+        maybeEmitHeatDecision(tick);
       }
     }
 
@@ -506,4 +579,55 @@ export function applyReport(state: GameState, report: ShiftReport): { state: Gam
     heat: clampHeat(report.heatAtClose - HEAT.overnightDecay),
   };
   return { state: newState, report: annotated };
+}
+
+/**
+ * Override the player's choice at a pending decision. Mutates the report
+ * in place (the entry's text + cashDelta + repDelta + heatAfter on the
+ * decision entry, and applies any heatDelta to all subsequent entries'
+ * heatAfter snapshots). Aggregate cashDelta/repDelta on the report are
+ * adjusted as well.
+ *
+ * No-op if `optionIndex` points at the default option (the report
+ * already reflects that choice).
+ */
+export function applyDecisionOverride(
+  report: ShiftReport,
+  decisionIndex: number,
+  optionIndex: number,
+): void {
+  const decision = report.decisions[decisionIndex];
+  if (!decision) return;
+  const option = decision.options[optionIndex];
+  if (!option) return;
+  if (option.isDefault) return;
+
+  const entry = report.entries[decision.entryIndex];
+  if (!entry || entry.kind !== 'Decision') return;
+
+  // Adjust report aggregates for the swap.
+  const cashDiff = option.cashDelta - entry.cashDelta;
+  const repDiff = option.repDelta - entry.repDelta;
+  report.cashDelta += cashDiff;
+  report.repDelta += repDiff;
+
+  entry.text = option.narrative;
+  entry.cashDelta = option.cashDelta;
+  entry.repDelta = option.repDelta;
+
+  if (option.heatDelta) {
+    // Apply heat shift to this entry and every subsequent entry's snapshot.
+    const startHeat = entry.heatAfter ?? 0;
+    const newHeat = Math.max(0, Math.min(5, startHeat + option.heatDelta));
+    const delta = newHeat - startHeat;
+    if (delta !== 0) {
+      for (let i = decision.entryIndex; i < report.entries.length; i++) {
+        const e = report.entries[i];
+        if (typeof e.heatAfter === 'number') {
+          e.heatAfter = Math.max(0, Math.min(5, e.heatAfter + delta));
+        }
+      }
+      report.heatAtClose = Math.max(0, Math.min(5, report.heatAtClose + delta));
+    }
+  }
 }

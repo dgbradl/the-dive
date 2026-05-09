@@ -71,9 +71,18 @@ week-long arc rather than a 3-min run.
   status strip now shows real heat pips + dollar damage with item
   list. 4 new tests (damage itemization, heat builds without staff,
   heat is calmer when staffed, applyReport overnight decay).
-- ⏳ **Slice 8c — Active action bar / crisis decisions (B6).**
-  *Next up.* `runShift` evolves to two-phase replay so the player
-  can intervene at decision points.
+- ✅ **Slice 8c — Active action bar / crisis decisions (B6).**
+  `runShift` stays pure but now produces a `decisions[]` side array
+  alongside the deterministic `entries[]`. Each decision attaches to
+  a `Decision` entry whose default outcome is already applied. The
+  UI replays as before, but pauses on Decision entries, lights up
+  the matching action-bar slots (gated by simulator-computed flags
+  like `bouncer-on-door`), and lets the player override via click or
+  `[1]..[5]` keys. `applyDecisionOverride` swaps the entry's text
+  and deltas in place and propagates any heatDelta to subsequent
+  entries' heatAfter snapshots. Slice ships with one decision: heat
+  ≥ 3.5 → "Rowdy at the bar — POUR / CUT OFF / 86 HIM (bouncer
+  required)". 4 new tests.
 
 ## Suggested first 5 slices
 

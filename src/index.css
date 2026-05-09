@@ -654,6 +654,13 @@ button.ghost {
 .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .action-btn.primary { background: var(--tavern-leather); color: var(--tavern-candle); }
 .action-btn.danger  { background: #5a1a10; color: var(--tavern-candle); }
+
+/* When a decision is pending, lift the available buttons. */
+.action-bar.live .action-btn.available {
+  box-shadow: var(--glow-amber);
+  animation: step-blink 1s steps(1, end) infinite;
+}
+.action-bar.live .action-btn.available.primary { animation: none; box-shadow: var(--glow-amber); }
 .action-label { font-size: 11px; }
 .action-key   { font-size: 8px; color: var(--ink-dust); letter-spacing: 0.14em; }
 
