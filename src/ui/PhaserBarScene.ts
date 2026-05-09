@@ -29,9 +29,11 @@ interface CustomerSprite {
   regularId?: string;
   /** When set, the sprite occupies a fixed bar-stool slot (0..STOOLS-1). */
   stool?: number;
+  bobTween?: Phaser.Tweens.Tween;
 }
 
 const STOOLS = 5;
+const AMBIENT_TINTS = [0xb88a4a, 0x8a7a5a, 0xc8b890, 0xd8a55c, 0x6a4a2e];
 
 const ARRIVAL_BUBBLES: Record<string, string> = {
   dive_regular: 'Same as always.',
@@ -44,6 +46,7 @@ const ARRIVAL_BUBBLES: Record<string, string> = {
 
 export class BarScene extends Phaser.Scene {
   private waiting: CustomerSprite[] = [];
+  private ambient: Phaser.GameObjects.Image[] = [];
   private bannerText?: Phaser.GameObjects.Text;
   private viewW = 0;
   private viewH = 0;
@@ -70,45 +73,99 @@ export class BarScene extends Phaser.Scene {
     this.viewH = cam.height;
     cam.setBackgroundColor(COLORS.bg);
 
-    // Wood-paneling floor + back wall
-    this.add.tileSprite(0, 0, this.viewW, this.viewH, 'tex_wood').setOrigin(0, 0).setAlpha(0.85);
+    const BACK_WALL_BOTTOM = this.viewH * 0.30;
+    const FLOOR_TOP        = this.viewH * 0.50;
+    const BAR_Y            = this.viewH * 0.46;
 
-    // Bottle shelf along the top
-    const shelf = this.add.image(this.viewW / 2, this.viewH * 0.18, 'tex_shelf');
-    const shelfScale = (this.viewW * 0.95) / shelf.width;
-    shelf.setScale(shelfScale);
+    // Lit back wall (warm tint) — top of canvas to wall bottom.
+    this.add.tileSprite(0, 0, this.viewW, BACK_WALL_BOTTOM + 20, 'tex_wood')
+      .setOrigin(0, 0)
+      .setTint(0x6a4a2e); // tavern-tobacco
 
-    // Bar counter — bottom-ish (kept as geometry until we get a counter sprite)
-    const barY = this.viewH * 0.72;
-    this.add.rectangle(this.viewW / 2, barY, this.viewW * 0.92, this.viewH * 0.14, COLORS.bar);
-    this.add.rectangle(this.viewW / 2, barY - this.viewH * 0.07, this.viewW * 0.92, this.viewH * 0.012, COLORS.barTop);
+    // Darker floor — from FLOOR_TOP down to canvas bottom.
+    this.add.tileSprite(0, FLOOR_TOP, this.viewW, this.viewH - FLOOR_TOP, 'tex_wood')
+      .setOrigin(0, 0)
+      .setTint(0x3a2516); // tavern-mahogany
 
-    // Door — left edge
-    this.add.rectangle(this.viewW * 0.07, this.viewH * 0.5, this.viewW * 0.08, this.viewH * 0.20, COLORS.door);
-    this.add.text(this.viewW * 0.07, this.viewH * 0.36, 'DOOR', {
+    // Wall/floor seam shadow line.
+    this.add.rectangle(this.viewW / 2, FLOOR_TOP, this.viewW, 2, 0x1a120a)
+      .setOrigin(0.5, 0)
+      .setAlpha(0.7);
+
+    // Two staggered rows of bottle shelf for repeating bottles.
+    this.add.tileSprite(0, this.viewH * 0.06, this.viewW, 56, 'tex_shelf').setOrigin(0, 0);
+    this.add.tileSprite(0, this.viewH * 0.18, this.viewW, 56, 'tex_shelf')
+      .setOrigin(0, 0)
+      .setAlpha(0.85);
+
+    // Bar counter — middle band.
+    this.add.rectangle(this.viewW / 2, BAR_Y, this.viewW * 0.94, this.viewH * 0.10, COLORS.bar);
+    this.add.rectangle(this.viewW / 2, BAR_Y - this.viewH * 0.05, this.viewW * 0.94, this.viewH * 0.012, COLORS.barTop);
+
+    // Door — left edge, between back wall and floor.
+    this.add.rectangle(this.viewW * 0.07, this.viewH * 0.40, this.viewW * 0.08, this.viewH * 0.18, COLORS.door);
+    this.add.text(this.viewW * 0.07, this.viewH * 0.30, 'DOOR', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: COLORS.dim,
     }).setOrigin(0.5);
 
-    // Bartender (Marv) behind the bar
-    const marv = this.add.image(this.viewW / 2, barY - this.viewH * 0.02, 'bartender_marv').setOrigin(0.5, 1);
-    const marvScale = (this.viewH * 0.22) / marv.height;
+    // Floor tables — two ellipse tabletops with seat slots around them.
+    const tableSpots: [number, number][] = [
+      [this.viewW * 0.24, this.viewH * 0.82],
+      [this.viewW * 0.68, this.viewH * 0.84],
+    ];
+    for (const [tx, ty] of tableSpots) {
+      this.add.ellipse(tx, ty, this.viewW * 0.18, 18, 0x261a10).setStrokeStyle(1, 0x1a120a);
+      this.add.ellipse(tx, ty - 2, this.viewW * 0.16, 12, 0x4a3220);
+    }
+
+    // Bartender (Marv) behind the bar.
+    const marv = this.add.image(this.viewW / 2, BAR_Y + this.viewH * 0.01, 'bartender_marv').setOrigin(0.5, 1);
+    const marvScale = (this.viewH * 0.20) / marv.height;
     marv.setScale(marvScale);
-    this.add.text(this.viewW / 2, barY + this.viewH * 0.06, 'MARV', {
+    this.add.text(this.viewW / 2, BAR_Y + this.viewH * 0.04, 'MARV', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '8px',
       color: COLORS.dim,
     }).setOrigin(0.5);
 
-    // Banner space at top for events
-    this.bannerText = this.add.text(this.viewW / 2, this.viewH * 0.05, '', {
+    // Banner space at top for events.
+    this.bannerText = this.add.text(this.viewW / 2, this.viewH * 0.04, '', {
       fontFamily: '"Press Start 2P", monospace',
       fontSize: '9px',
       color: COLORS.amber,
       align: 'center',
       wordWrap: { width: this.viewW * 0.9 },
     }).setOrigin(0.5);
+
+    this.spawnAmbient();
+  }
+
+  private spawnAmbient() {
+    for (let i = 0; i < 3; i++) {
+      const img = this.add.image(this.viewW * (0.3 + i * 0.2), this.viewH * 0.78, FALLBACK_SPRITE)
+        .setOrigin(0.5, 1)
+        .setAlpha(0.85)
+        .setTint(AMBIENT_TINTS[i % AMBIENT_TINTS.length]);
+      const targetH = this.viewH * (0.13 + (i % 2) * 0.02);
+      img.setScale(targetH / img.height);
+      this.ambient.push(img);
+      this.wanderLoop(img);
+    }
+  }
+
+  private wanderLoop(img: Phaser.GameObjects.Image) {
+    const tx = Phaser.Math.Between(this.viewW * 0.18, this.viewW * 0.86);
+    const ty = Phaser.Math.Between(this.viewH * 0.72, this.viewH * 0.92);
+    img.setFlipX(tx < img.x);
+    this.tweens.add({
+      targets: img,
+      x: tx,
+      y: ty,
+      duration: Phaser.Math.Between(2400, 4200),
+      onComplete: () => this.wanderLoop(img),
+    });
   }
 
   handleEntry(entry: ShiftEntry) {
@@ -138,11 +195,13 @@ export class BarScene extends Phaser.Scene {
 
   reset() {
     for (const c of this.waiting) {
+      c.bobTween?.stop();
       c.image.destroy();
       c.nameLabel?.destroy();
     }
     this.waiting = [];
     if (this.bannerText) this.bannerText.text = '';
+    // Ambient wanderers persist across shifts — they're decorative.
   }
 
   private spriteKey(archetypeId?: string): string {
@@ -155,19 +214,19 @@ export class BarScene extends Phaser.Scene {
     const arch = archetypeId ? catalog.customerArchetypes.find((a) => a.id === archetypeId) : undefined;
 
     // Named regulars take a fixed bar-stool slot; anonymous customers
-    // queue along the floor above the counter.
+    // queue along the floor in front of the counter.
     const stool = entry.regularId ? this.firstFreeStool() : undefined;
     const startX = this.viewW * 0.07;
-    const targetH = this.viewH * 0.18;
+    const targetH = this.viewH * 0.16;
     const isSeated = stool !== undefined;
-    const y = isSeated ? this.stoolY() : this.viewH * 0.55;
+    const y = isSeated ? this.stoolY() : this.queueY();
 
     const image = this.add.image(startX, y, this.spriteKey(archetypeId)).setOrigin(0.5, 1);
     image.setScale(targetH / image.height);
 
     let nameLabel: Phaser.GameObjects.Text | undefined;
     if (entry.regularId && entry.customerDisplayName) {
-      nameLabel = this.add.text(startX, y + 6, entry.customerDisplayName.toUpperCase(), {
+      nameLabel = this.add.text(startX, y + 4, entry.customerDisplayName.toUpperCase(), {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '8px',
         color: COLORS.amber,
@@ -187,7 +246,25 @@ export class BarScene extends Phaser.Scene {
       stool !== undefined
         ? this.stoolX(stool)
         : this.queueX(this.queueOnlyCount() - 1);
-    this.tweens.add({ targets: image, x: targetX, duration: 350, ease: 'Sine.easeOut' });
+    this.tweens.add({
+      targets: image,
+      x: targetX,
+      duration: 350,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        if (isSeated) {
+          // 2px step-bob so seated regulars aren't statues.
+          sprite.bobTween = this.tweens.add({
+            targets: image,
+            y: y - 2,
+            duration: 600,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Steps(1)',
+          });
+        }
+      },
+    });
     if (nameLabel) {
       this.tweens.add({ targets: nameLabel, x: targetX, duration: 350, ease: 'Sine.easeOut' });
     }
@@ -224,6 +301,7 @@ export class BarScene extends Phaser.Scene {
     this.waiting.splice(idx, 1);
 
     const baseScale = sprite.image.scale;
+    sprite.bobTween?.stop();
     sprite.nameLabel?.destroy();
     // Cheer effect — quick scale pulse, then walk off-right
     this.tweens.add({
@@ -252,6 +330,7 @@ export class BarScene extends Phaser.Scene {
     this.waiting.splice(idx, 1);
 
     sprite.image.setTint(COLORS.angryTint);
+    sprite.bobTween?.stop();
     sprite.nameLabel?.destroy();
     this.tweens.add({
       targets: sprite.image,
@@ -293,7 +372,13 @@ export class BarScene extends Phaser.Scene {
   }
 
   private stoolY(): number {
-    return this.viewH * 0.68;
+    // Seated at the bar — feet land just below the counter line.
+    return this.viewH * 0.55;
+  }
+
+  private queueY(): number {
+    // Standing on the floor in front of the bar.
+    return this.viewH * 0.66;
   }
 
   private firstFreeStool(): number | undefined {
