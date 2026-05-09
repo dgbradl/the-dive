@@ -23,9 +23,9 @@ export const startingRegulars: Regular[] = [
 ];
 
 export const drinks: Drink[] = [
-  { id: 'pbr', displayName: 'PBR', costToMake: 1, suggestedPrice: 4, prepTicks: 1, quality: 0.3 },
-  { id: 'whiskey_sour', displayName: 'Whiskey Sour', costToMake: 3, suggestedPrice: 9, prepTicks: 2, quality: 0.7 },
-  { id: 'house_special', displayName: 'House Special', costToMake: 4, suggestedPrice: 12, prepTicks: 2, quality: 0.85 },
+  { id: 'pbr',           displayName: 'PBR',           costToMake: 1, suggestedPrice: 4,  prepTicks: 1, quality: 0.3,  caseSize: 12, casePrice: 12 },
+  { id: 'whiskey_sour',  displayName: 'Whiskey Sour',  costToMake: 3, suggestedPrice: 9,  prepTicks: 2, quality: 0.7,  caseSize: 8,  casePrice: 24 },
+  { id: 'house_special', displayName: 'House Special', costToMake: 4, suggestedPrice: 12, prepTicks: 2, quality: 0.85, caseSize: 6,  casePrice: 24 },
 ];
 
 export const customerArchetypes: CustomerArchetype[] = [

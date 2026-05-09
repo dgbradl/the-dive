@@ -33,6 +33,10 @@ export interface Drink {
   suggestedPrice: number;
   prepTicks: number;
   quality: number; // 0..1
+  /** Number of units in one case the player can order each morning. */
+  caseSize: number;
+  /** Price for one case (caseSize units bundled). */
+  casePrice: number;
 }
 
 export interface StaffArchetype {
@@ -152,6 +156,8 @@ export interface GameState {
   heat: number;
   /** Flat rent deducted from cash at the close of every shift. */
   rentPerDay: number;
+  /** On-hand inventory by drink id; runs out → walkouts. */
+  drinkStock: Record<string, number>;
 }
 
 /** A weekly milestone — the lease threats and rep gates that pressure the run. */
@@ -278,4 +284,6 @@ export interface ShiftReport {
   decisions: PendingDecision[];
   /** Rent deducted at the close of this shift. */
   rentPaid: number;
+  /** Units consumed tonight by drink id; subtracted from state.drinkStock. */
+  stockUsed: Record<string, number>;
 }

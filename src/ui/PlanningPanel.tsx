@@ -25,6 +25,7 @@ interface Props {
   onAssign: (instanceId: string, station: Station) => void;
   onBuyUpgrade: (upgradeId: string) => void;
   onSetDrinkPrice: (drinkId: string, price: number | null) => void;
+  onOrderCase: (drinkId: string) => void;
 }
 
 const MIN_PRICE = 1;
@@ -47,6 +48,7 @@ export function PlanningPanel({
   onAssign,
   onBuyUpgrade,
   onSetDrinkPrice,
+  onOrderCase,
 }: Props) {
   const hiredArchetypeIds = new Set(state.hiredStaff.map((h) => h.archetypeId));
   const availableHires = catalog.staffArchetypes.filter((a) => !hiredArchetypeIds.has(a.id));
@@ -124,6 +126,21 @@ export function PlanningPanel({
           </ul>
         </div>
       )}
+
+      <div className="section">
+        <h2>Morning order</h2>
+        <ul className="stock-list">
+          {catalog.drinks.map((d) => (
+            <StockRow
+              key={d.id}
+              drink={d}
+              stock={state.drinkStock[d.id] ?? 0}
+              cash={state.cash}
+              onOrder={() => onOrderCase(d.id)}
+            />
+          ))}
+        </ul>
+      </div>
 
       <div className="section">
         <h2>Tonight's menu</h2>
@@ -268,6 +285,38 @@ function TraitChips({ traits }: { traits: StaffTrait[] }) {
         <span key={t} className="chip">{t}</span>
       ))}
     </div>
+  );
+}
+
+function StockRow({
+  drink,
+  stock,
+  cash,
+  onOrder,
+}: {
+  drink: Drink;
+  stock: number;
+  cash: number;
+  onOrder: () => void;
+}) {
+  const canAfford = cash >= drink.casePrice;
+  const lowTone = stock === 0 ? 'out' : stock < drink.caseSize / 2 ? 'low' : '';
+  return (
+    <li className="stock-row">
+      <div className="stock-meta">
+        <div className="stock-name">{drink.displayName}</div>
+        <div className="stock-sub">case of {drink.caseSize} · ${drink.casePrice}</div>
+      </div>
+      <div className={`stock-count ${lowTone}`}>{stock}</div>
+      <button
+        type="button"
+        className="stock-order-btn"
+        disabled={!canAfford}
+        onClick={onOrder}
+      >
+        Order +{drink.caseSize}
+      </button>
+    </li>
   );
 }
 
