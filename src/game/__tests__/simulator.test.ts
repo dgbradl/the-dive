@@ -553,6 +553,28 @@ describe('staff traits', () => {
     expect(charmingGates).toContain('cash-50'); // fixture state cash=200 by default
   });
 
+  it('door-refusal decision fires at high heat with POUR / DOOR options', () => {
+    // No staff → walkouts and arrivals push heat past the door threshold.
+    const noStaff = fixture([]);
+    let foundDoor = false;
+    for (let seed = 0; seed < 80 && !foundDoor; seed++) {
+      const r = runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 98000 + seed);
+      for (const d of r.decisions) {
+        const labels = d.options.map((o) => o.label);
+        if (labels.includes('Let In') && labels.includes('Refuse')) {
+          foundDoor = true;
+          // Door decision should only have 2 options.
+          expect(d.options).toHaveLength(2);
+          // Default = Let In, no change. Refuse drops heat.
+          expect(d.options.find((o) => o.label === 'Let In')?.isDefault).toBe(true);
+          expect(d.options.find((o) => o.label === 'Refuse')?.heatDelta).toBeLessThan(0);
+          break;
+        }
+      }
+    }
+    expect(foundDoor).toBe(true);
+  });
+
   it('Charming on Door reduces avg crisis cash penalty', () => {
     // Both fixtures have a bartender so the shift runs; only the Door staff differs.
     const base = fixture([
