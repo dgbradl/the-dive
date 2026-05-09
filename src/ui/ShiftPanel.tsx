@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import { BarScene } from './PhaserBarScene';
-import type { ShiftReport } from '../game/types';
+import type { ShiftEntry, ShiftReport } from '../game/types';
+import { useCountUp } from './animation';
+
+interface CashToast {
+  id: number;
+  amount: number;
+}
+
+const TOAST_LIFETIME_MS = 1100;
 
 interface Props {
   report: ShiftReport;
@@ -16,7 +24,14 @@ export function ShiftPanel({ report, onComplete }: Props) {
   const sceneRef = useRef<BarScene | null>(null);
   const [logLines, setLogLines] = useState<string[]>([]);
   const [skipped, setSkipped] = useState(false);
+  const [runningCash, setRunningCash] = useState(0);
+  const [runningRep, setRunningRep] = useState(0);
+  const [toasts, setToasts] = useState<CashToast[]>([]);
   const logScrollRef = useRef<HTMLDivElement | null>(null);
+  const toastIdRef = useRef(0);
+
+  const animatedCash = useCountUp(runningCash, 280);
+  const animatedRep = useCountUp(runningRep, 400);
 
   // Mount Phaser once
   useEffect(() => {
@@ -50,9 +65,14 @@ export function ShiftPanel({ report, onComplete }: Props) {
   useEffect(() => {
     let cancelled = false;
     let i = 0;
+    let cashSoFar = 0;
+    let repSoFar = 0;
     const lines: string[] = [];
     setLogLines([]);
     setSkipped(false);
+    setRunningCash(0);
+    setRunningRep(0);
+    setToasts([]);
     sceneRef.current?.reset();
 
     const step = () => {
@@ -64,9 +84,22 @@ export function ShiftPanel({ report, onComplete }: Props) {
       const entry = report.entries[i++];
       lines.push(formatEntry(entry));
       setLogLines([...lines]);
-      // Wait a frame before calling Phaser — scene may still be initializing
+      cashSoFar += entry.cashDelta;
+      repSoFar += entry.repDelta;
+      setRunningCash(cashSoFar);
+      setRunningRep(repSoFar);
+      if (entry.cashDelta !== 0) emitToast(entry);
       sceneRef.current?.handleEntry(entry);
       window.setTimeout(step, TICK_MS);
+    };
+
+    const emitToast = (entry: ShiftEntry) => {
+      const id = ++toastIdRef.current;
+      setToasts((prev) => [...prev, { id, amount: entry.cashDelta }]);
+      window.setTimeout(() => {
+        if (cancelled) return;
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, TOAST_LIFETIME_MS);
     };
 
     // Slight delay so the scene's create() runs first.
@@ -91,13 +124,32 @@ export function ShiftPanel({ report, onComplete }: Props) {
     onComplete();
   };
 
+  const cashSign = animatedCash < 0 ? '-' : '+';
+  const repSign = animatedRep > 0 ? '+' : animatedRep < 0 ? '-' : '';
+
   return (
     <div className="panel shift-panel">
       <div className="shift-header">
         <span>Day {report.day}</span>
+        <span className="running-totals">
+          <span className="running-cash">{`${cashSign}$${Math.abs(animatedCash)}`}</span>
+          <span className="running-rep">{`rep ${repSign}${Math.abs(animatedRep)}`}</span>
+        </span>
         <button className="skip-btn" onClick={skip}>Skip</button>
       </div>
-      <div ref={containerRef} className="phaser-container" />
+      <div className="phaser-wrap">
+        <div ref={containerRef} className="phaser-container" />
+        <div className="cash-toasts">
+          {toasts.map((t) => (
+            <span
+              key={t.id}
+              className={`cash-toast ${t.amount >= 0 ? 'pos' : 'neg'} ${Math.abs(t.amount) >= 25 ? 'big' : ''}`}
+            >
+              {t.amount >= 0 ? `+$${t.amount}` : `-$${Math.abs(t.amount)}`}
+            </span>
+          ))}
+        </div>
+      </div>
       <div ref={logScrollRef} className="shift-log">
         {logLines.map((line, idx) => (
           <div key={idx} className="log-line">{line}</div>

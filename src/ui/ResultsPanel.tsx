@@ -1,4 +1,5 @@
 import type { GameCatalog, GameState, ShiftReport } from '../game/types';
+import { useCountUp } from './animation';
 import { composeStory, pickHeadline } from './newspaper';
 
 interface Props {
@@ -28,10 +29,10 @@ export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
           ))}
         </div>
         <dl className="newspaper-totals">
-          <Total label="Net" value={`$${net}`} good={net >= 0} />
-          <Total label="Rep" value={signed(report.repDelta)} good={report.repDelta >= 0} />
-          <Total label="Served" value={String(report.customersServed)} good />
-          <Total label="Walkouts" value={String(report.customersLost)} good={report.customersLost === 0} />
+          <NetTotal target={net} />
+          <RepTotal target={report.repDelta} />
+          <CountTotal label="Served" target={report.customersServed} good />
+          <CountTotal label="Walkouts" target={report.customersLost} good={report.customersLost === 0} />
         </dl>
       </article>
       <button className="primary" onClick={onNextDay}>Lock up</button>
@@ -39,15 +40,34 @@ export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
   );
 }
 
-function Total({ label, value, good }: { label: string; value: string; good: boolean }) {
+function NetTotal({ target }: { target: number }) {
+  const v = useCountUp(target, 900, 0);
+  const sign = v < 0 ? '-' : '';
   return (
-    <div className={`newspaper-total ${good ? 'good' : 'bad'}`}>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
+    <div className={`newspaper-total ${target >= 0 ? 'good' : 'bad'}`}>
+      <dt>Net</dt>
+      <dd>{`${sign}$${Math.abs(v)}`}</dd>
     </div>
   );
 }
 
-function signed(n: number): string {
-  return n > 0 ? `+${n}` : `${n}`;
+function RepTotal({ target }: { target: number }) {
+  const v = useCountUp(target, 900, 0);
+  const label = v > 0 ? `+${v}` : `${v}`;
+  return (
+    <div className={`newspaper-total ${target >= 0 ? 'good' : 'bad'}`}>
+      <dt>Rep</dt>
+      <dd>{label}</dd>
+    </div>
+  );
+}
+
+function CountTotal({ label, target, good }: { label: string; target: number; good: boolean }) {
+  const v = useCountUp(target, 900, 0);
+  return (
+    <div className={`newspaper-total ${good ? 'good' : 'bad'}`}>
+      <dt>{label}</dt>
+      <dd>{v}</dd>
+    </div>
+  );
 }

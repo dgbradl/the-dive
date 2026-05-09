@@ -314,6 +314,10 @@ button.ghost {
   border-radius: 6px;
   border: 1px solid var(--panel-2);
 }
+.phaser-wrap {
+  position: relative;
+  width: 100%;
+}
 .phaser-container {
   width: 100%;
   height: 45vh;
@@ -322,6 +326,44 @@ button.ghost {
   position: relative;
 }
 .phaser-container canvas { display: block; }
+
+.running-totals {
+  display: flex;
+  gap: 14px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.running-cash { color: var(--ink); font-weight: 600; }
+.running-rep { color: var(--text-dim); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.cash-toasts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.cash-toast {
+  position: absolute;
+  right: 16px;
+  top: 60%;
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+  animation: cash-toast-rise 1.1s cubic-bezier(0.2, 0.6, 0.2, 1) forwards;
+}
+.cash-toast.pos { color: var(--good); }
+.cash-toast.neg { color: var(--bad); }
+.cash-toast.big {
+  font-size: 26px;
+  text-shadow: 0 0 12px rgba(108, 209, 122, 0.5), 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+@keyframes cash-toast-rise {
+  0%   { transform: translateY(8px) scale(0.85); opacity: 0; }
+  15%  { transform: translateY(0)   scale(1.05); opacity: 1; }
+  70%  { transform: translateY(-32px) scale(1);   opacity: 1; }
+  100% { transform: translateY(-56px) scale(0.95); opacity: 0; }
+}
 .shift-log {
   flex: 1;
   overflow-y: auto;
