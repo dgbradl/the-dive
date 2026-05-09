@@ -175,7 +175,39 @@ export type ShiftEntryKind =
   | 'Walkout'
   | 'Mishap'
   | 'Event'
-  | 'Wages';
+  | 'Wages'
+  | 'Decision';
+
+/** Player-facing verbs on the action bar. */
+export type ActionKey = 'pour' | 'cut-off' | 'eighty-six' | 'ring-up' | 'door';
+
+/** Gates that must be met for a DecisionOption to be selectable. */
+export type DecisionGate = 'bouncer-on-door' | 'charming-on-floor' | 'cash-50';
+
+export interface DecisionOption {
+  /** Which action-bar verb this option occupies. */
+  key: ActionKey;
+  /** Button label override (defaults to the key's label). */
+  label?: string;
+  /** If unmet, the button is disabled. */
+  requires?: DecisionGate;
+  cashDelta: number;
+  repDelta: number;
+  heatDelta?: number;
+  /** Replaces the entry's text when this option is applied. */
+  narrative: string;
+  /** Marked the default — applied if the player doesn't override. */
+  isDefault?: boolean;
+}
+
+export interface PendingDecision {
+  /** Index into report.entries — the Decision entry this resolves. */
+  entryIndex: number;
+  prompt: string;
+  options: DecisionOption[];
+  /** Resolved gate flags computed by the simulator at decision time. */
+  satisfiedGates: DecisionGate[];
+}
 
 export interface ShiftEntry {
   tick: number;
@@ -196,6 +228,8 @@ export interface ShiftEntry {
   damageItem?: string;
   /** Heat level immediately after this tick resolves (0..5). */
   heatAfter?: number;
+  /** Set on Decision entries — index into report.decisions. */
+  decisionIndex?: number;
 }
 
 export interface DamageRecord {
@@ -217,4 +251,6 @@ export interface ShiftReport {
   heatAtClose: number;
   /** Damage accumulated tonight, itemized. */
   damages: DamageRecord[];
+  /** Pause-points the player can override during cinematic playback. */
+  decisions: PendingDecision[];
 }

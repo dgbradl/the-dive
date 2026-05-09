@@ -80,9 +80,18 @@ src/
   `ShiftEntry` carries a `heatAfter` snapshot so the HUD reads the
   running level by replaying entries. The status strip's HEAT pip
   meter and DAMAGE cell now show real values with item lists.
-- Next up: **Slice 8c — Active action bar (B6).** `runShift` evolves
-  to two-phase replay so the player can intervene at decision points
-  (POUR / CUT OFF / 86 HIM / RING UP / DOOR).
+- 8c shipped: `runShift` stays pure but produces a `decisions[]`
+  side array. The UI replays entries; on a `Decision` entry it
+  pauses, lights up the matching action-bar slots (gated by sim
+  flags like `bouncer-on-door`), and waits for click or `[1]..[5]`.
+  `applyDecisionOverride` swaps the entry's deltas in place and
+  propagates any heatDelta to subsequent `heatAfter` snapshots. One
+  decision shipped: heat ≥ 3.5 fires "Rowdy at the bar — POUR /
+  CUT OFF / 86 HIM (bouncer required)".
+- The screenshot-shape is now fully implemented end-to-end. Future
+  decisions (health inspector, door refusals, customer cut-offs)
+  plug into the same `RandomEvent.options` / `applyDecisionOverride`
+  surface.
 
 ## Don't
 

@@ -23,6 +23,7 @@ function emptyReport(day: number): ShiftReport {
     entries: [],
     heatAtClose: 0,
     damages: [],
+    decisions: [],
   };
 }
 

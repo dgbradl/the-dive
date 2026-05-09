@@ -1,4 +1,4 @@
-import type { ShiftPhase } from '../game/types';
+import type { ActionKey, DecisionGate, DecisionOption, ShiftPhase } from '../game/types';
 import { dayOfWeek, phaseLabel, tickToClock, timeSubtitle } from './clockUtils';
 
 /**
@@ -124,32 +124,65 @@ export function DialogueLine({ speaker, text }: { speaker: string; text: string 
 }
 
 /**
- * Action bar — disabled in 8a, wired up in 8c. Five primary verbs with
- * 1..5 keyboard hints.
+ * Action bar — five primary verbs in fixed slots.
+ * When `options` is given, the matching slots light up and become
+ * interactive; the others stay disabled. With no `options`, every slot
+ * is disabled placeholder chrome.
  */
-const ACTIONS: { key: string; label: string; tone?: 'primary' | 'danger' }[] = [
-  { key: '1', label: 'Pour', tone: 'primary' },
-  { key: '2', label: 'Cut Off' },
-  { key: '3', label: '86 Him', tone: 'danger' },
-  { key: '4', label: 'Ring Up' },
-  { key: '5', label: 'Door' },
+export interface ActionBarProps {
+  options?: DecisionOption[];
+  satisfiedGates?: DecisionGate[];
+  onPick?: (option: DecisionOption, optionIndex: number) => void;
+}
+
+const ACTION_SLOTS: { key: ActionKey; index: number; label: string; tone?: 'primary' | 'danger' }[] = [
+  { key: 'pour',       index: 1, label: 'Pour',    tone: 'primary' },
+  { key: 'cut-off',    index: 2, label: 'Cut Off' },
+  { key: 'eighty-six', index: 3, label: '86 Him',  tone: 'danger' },
+  { key: 'ring-up',    index: 4, label: 'Ring Up' },
+  { key: 'door',       index: 5, label: 'Door' },
 ];
 
-export function ActionBar() {
+function gateMet(option: DecisionOption, gates: DecisionGate[]): boolean {
+  if (!option.requires) return true;
+  return gates.includes(option.requires);
+}
+
+export function ActionBar({ options, satisfiedGates = [], onPick }: ActionBarProps) {
+  // Map each slot to its option (if any). Stable order so layout never reflows.
+  const slotOption: Record<ActionKey, { option: DecisionOption; index: number } | null> = {
+    'pour': null, 'cut-off': null, 'eighty-six': null, 'ring-up': null, 'door': null,
+  };
+  if (options) {
+    options.forEach((o, i) => {
+      slotOption[o.key] = { option: o, index: i };
+    });
+  }
+
   return (
-    <div className="action-bar" role="toolbar" aria-label="Shift actions (disabled — coming in Slice 8c)">
-      {ACTIONS.map((a) => (
-        <button
-          key={a.key}
-          type="button"
-          className={`action-btn ${a.tone ?? ''}`}
-          disabled
-          aria-keyshortcuts={a.key}
-        >
-          <span className="action-label">{a.label}</span>
-          <span className="action-key">[{a.key}]</span>
-        </button>
-      ))}
+    <div
+      className={`action-bar ${options ? 'live' : ''}`}
+      role="toolbar"
+      aria-label={options ? 'Decision — pick an action' : 'Shift actions'}
+    >
+      {ACTION_SLOTS.map((s) => {
+        const filled = slotOption[s.key];
+        const interactive = !!filled && gateMet(filled.option, satisfiedGates);
+        const label = filled?.option.label ?? s.label;
+        return (
+          <button
+            key={s.key}
+            type="button"
+            className={`action-btn ${s.tone ?? ''} ${interactive ? 'available' : ''}`}
+            disabled={!interactive}
+            aria-keyshortcuts={String(s.index)}
+            onClick={() => filled && onPick?.(filled.option, filled.index)}
+          >
+            <span className="action-label">{label}</span>
+            <span className="action-key">[{s.index}]</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import { BarScene } from './PhaserBarScene';
-import type { ShiftEntry, ShiftPhase, ShiftReport } from '../game/types';
+import type { DecisionOption, PendingDecision, ShiftEntry, ShiftPhase, ShiftReport } from '../game/types';
 import { defaultShiftConfig } from '../game/types';
+import { applyDecisionOverride } from '../game/simulator';
 import { useCountUp } from './animation';
 import { playSfx } from './audio';
 import { MuteButton } from './MuteButton';
@@ -38,8 +39,10 @@ export function ShiftPanel({ report, onComplete }: Props) {
   const [currentHeat, setCurrentHeat] = useState(0);
   const [damageTotal, setDamageTotal] = useState(0);
   const [damageItems, setDamageItems] = useState<string[]>([]);
+  const [pendingDecision, setPendingDecision] = useState<PendingDecision | null>(null);
   const logScrollRef = useRef<HTMLDivElement | null>(null);
   const toastIdRef = useRef(0);
+  const resumeRef = useRef<(() => void) | null>(null);
 
   const animatedCash = useCountUp(runningCash, 280);
   const animatedRep = useCountUp(runningRep, 400);
@@ -91,6 +94,8 @@ export function ShiftPanel({ report, onComplete }: Props) {
     setCurrentHeat(0);
     setDamageTotal(0);
     setDamageItems([]);
+    setPendingDecision(null);
+    resumeRef.current = null;
     let damageRunningTotal = 0;
     const damageRunningItems: string[] = [];
     sceneRef.current?.reset();
@@ -123,6 +128,29 @@ export function ShiftPanel({ report, onComplete }: Props) {
       if (entry.cashDelta !== 0) emitToast(entry);
       sfxFor(entry);
       sceneRef.current?.handleEntry(entry);
+
+      // Pause for player input on Decision entries.
+      if (entry.kind === 'Decision' && entry.decisionIndex !== undefined) {
+        const decision = report.decisions[entry.decisionIndex];
+        if (decision) {
+          // Snapshot pre-override state so resume() can apply the diff.
+          const priorCash = entry.cashDelta;
+          const priorRep = entry.repDelta;
+          setPendingDecision(decision);
+          resumeRef.current = () => {
+            cashSoFar += entry.cashDelta - priorCash;
+            repSoFar += entry.repDelta - priorRep;
+            setRunningCash(cashSoFar);
+            setRunningRep(repSoFar);
+            if (typeof entry.heatAfter === 'number') setCurrentHeat(entry.heatAfter);
+            setPendingDecision(null);
+            resumeRef.current = null;
+            window.setTimeout(step, TICK_MS);
+          };
+          return; // halt the timer chain — resume() restarts it
+        }
+      }
+
       window.setTimeout(step, TICK_MS);
     };
 
@@ -156,6 +184,38 @@ export function ShiftPanel({ report, onComplete }: Props) {
     setLogLines(report.entries.map(formatEntry));
     onComplete();
   };
+
+  const onPickOption = (option: DecisionOption, optionIndex: number) => {
+    if (!pendingDecision) return;
+    if (option.requires && !pendingDecision.satisfiedGates.includes(option.requires)) return;
+    const decisionIndex = report.decisions.indexOf(pendingDecision);
+    if (decisionIndex !== -1) {
+      applyDecisionOverride(report, decisionIndex, optionIndex);
+    }
+    playSfx('click');
+    resumeRef.current?.();
+  };
+
+  // Keyboard 1..5 maps to action-bar slots while a decision is pending.
+  useEffect(() => {
+    if (!pendingDecision) return;
+    const handler = (e: KeyboardEvent) => {
+      const slotMap: Record<string, 'pour' | 'cut-off' | 'eighty-six' | 'ring-up' | 'door'> = {
+        '1': 'pour', '2': 'cut-off', '3': 'eighty-six', '4': 'ring-up', '5': 'door',
+      };
+      const wantKey = slotMap[e.key];
+      if (!wantKey) return;
+      const idx = pendingDecision.options.findIndex((o) => o.key === wantKey);
+      if (idx === -1) return;
+      const option = pendingDecision.options[idx];
+      if (option.requires && !pendingDecision.satisfiedGates.includes(option.requires)) return;
+      e.preventDefault();
+      onPickOption(option, idx);
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingDecision]);
 
   const cashSign = animatedCash < 0 ? '-' : '+';
   const repSign = animatedRep > 0 ? '+' : animatedRep < 0 ? '-' : '';
@@ -201,8 +261,12 @@ export function ShiftPanel({ report, onComplete }: Props) {
         damage={damageTotal}
         damageItems={damageItems.join(', ')}
       />
-      <DialogueLine speaker="Marv" text={dialogueText} />
-      <ActionBar />
+      <DialogueLine speaker="Marv" text={pendingDecision ? pendingDecision.prompt : dialogueText} />
+      <ActionBar
+        options={pendingDecision?.options}
+        satisfiedGates={pendingDecision?.satisfiedGates}
+        onPick={onPickOption}
+      />
       <details className="shift-log-details">
         <summary>Show shift log</summary>
         <div ref={logScrollRef} className="shift-log">
