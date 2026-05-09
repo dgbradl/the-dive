@@ -130,6 +130,17 @@ export function App() {
     });
   }, []);
 
+  const orderCase = useCallback((drinkId: string) => {
+    setState((s) => {
+      const drink = catalog.drinks.find((d) => d.id === drinkId);
+      if (!drink) return s;
+      if (s.cash < drink.casePrice) return s;
+      const next = { ...s.drinkStock };
+      next[drinkId] = (next[drinkId] ?? 0) + drink.caseSize;
+      return { ...s, cash: s.cash - drink.casePrice, drinkStock: next };
+    });
+  }, []);
+
   const setDrinkPrice = useCallback((drinkId: string, price: number | null) => {
     setState((s) => {
       const others = s.drinkPrices.filter((p) => p.drinkId !== drinkId);
@@ -152,6 +163,7 @@ export function App() {
           onAssign={assignStaff}
           onBuyUpgrade={buyUpgrade}
           onSetDrinkPrice={setDrinkPrice}
+          onOrderCase={orderCase}
         />
       )}
       {phase === 'shift' && lastReport && (

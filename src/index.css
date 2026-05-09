@@ -319,6 +319,53 @@ html, body, #root {
 
 .empty-hint { font-family: var(--font-note); color: var(--text-dim); font-size: 14px; }
 
+/* Morning order — drink stock */
+.stock-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.stock-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-2);
+  box-shadow: var(--etch-1);
+}
+.stock-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stock-name { font-family: var(--font-pixel); font-size: 11px; color: var(--text); letter-spacing: 0.04em; text-transform: uppercase; }
+.stock-sub  { font-family: var(--font-body); font-size: 14px; color: var(--text-dim); }
+.stock-count {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  color: var(--ink);
+  min-width: 32px;
+  text-align: center;
+  padding: 2px 6px;
+  background: var(--tavern-pitch);
+  box-shadow: var(--etch-1);
+}
+.stock-count.low { color: var(--tavern-amber); }
+.stock-count.out { color: var(--stain-cherry); }
+.stock-order-btn {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  padding: 8px 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--panel-2);
+  border-radius: 0;
+  text-transform: uppercase;
+  box-shadow: var(--drop-1);
+  cursor: pointer;
+}
+.stock-order-btn:active { transform: translate(1px, 1px); box-shadow: var(--drop-press); }
+.stock-order-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 /* Regulars roster */
 .regulars-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 .regular-row {

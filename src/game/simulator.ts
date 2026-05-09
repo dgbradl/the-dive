@@ -173,7 +173,12 @@ export function runShift(
     damages: [],
     decisions: [],
     rentPaid: 0,
+    stockUsed: {},
   };
+
+  // Local copy of inventory mutated through the shift; report.stockUsed
+  // tells applyReport how much to deduct from state.drinkStock.
+  const runtimeStock: Record<string, number> = { ...(state.drinkStock ?? {}) };
 
   let heat = clampHeat(state.heat);
   let lastDecisionTick = -DECISION_COOLDOWN_TICKS;
@@ -468,8 +473,34 @@ export function runShift(
       capacity--;
 
       const drink = pickDrinkForCustomer(c.archetype, catalog, rng);
+
+      // Stockout? They walk. Cost is already sunk in this morning's case order
+      // so nothing else to deduct — but the walkout still hurts rep + heat.
+      if (drink && (runtimeStock[drink.id] ?? 0) <= 0) {
+        const customerName = c.regular ? c.regular.displayName : c.archetype.displayName;
+        report.customersLost++;
+        heat = clampHeat(heat + HEAT.perWalkout);
+        addE({
+          tick,
+          kind: 'Walkout',
+          text: `${customerName} wanted a ${drink.displayName} — out of stock. Walks.`,
+          cashDelta: 0,
+          repDelta: -Math.ceil(config.repPerWalkout),
+          customerArchetypeId: c.archetype.id,
+          regularId: c.regular?.id,
+          customerDisplayName: customerName,
+        });
+        continue;
+      }
+
+      if (drink) {
+        runtimeStock[drink.id] = (runtimeStock[drink.id] ?? 0) - 1;
+        report.stockUsed[drink.id] = (report.stockUsed[drink.id] ?? 0) + 1;
+      }
+
       const price = resolvePrice(drink, state);
-      const cost = drink?.costToMake ?? 2;
+      // Inventory cost is paid at morning order time, not per pour.
+      const cost = 0;
       const baseTip = Math.round(price * c.archetype.tipMultiplier);
       const charmFactor =
         floorCount > 0
@@ -677,12 +708,18 @@ export function applyReport(state: GameState, report: ShiftReport): { state: Gam
     };
   });
 
+  const updatedStock: Record<string, number> = { ...(state.drinkStock ?? {}) };
+  for (const [id, used] of Object.entries(report.stockUsed)) {
+    updatedStock[id] = Math.max(0, (updatedStock[id] ?? 0) - used);
+  }
+
   const newState: GameState = {
     ...state,
     cash: state.cash + report.cashDelta - wages - rent,
     reputation: Math.max(0, Math.min(100, state.reputation + report.repDelta)),
     regulars: updatedRegulars,
     heat: clampHeat(report.heatAtClose - HEAT.overnightDecay),
+    drinkStock: updatedStock,
   };
   return { state: newState, report: annotated };
 }

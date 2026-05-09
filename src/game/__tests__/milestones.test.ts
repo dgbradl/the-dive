@@ -8,7 +8,7 @@ function emptyReport(day: number): ShiftReport {
   return {
     day, seed: 1, cashDelta: 0, repDelta: 0,
     customersServed: 0, customersLost: 0, wagesPaid: 0,
-    entries: [], heatAtClose: 0, damages: [], decisions: [], rentPaid: 0,
+    entries: [], heatAtClose: 0, damages: [], decisions: [], rentPaid: 0, stockUsed: {},
   };
 }
 

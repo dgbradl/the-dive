@@ -127,6 +127,7 @@ function fixture(spec: StaffSpec[]): { state: GameState; catalog: GameCatalog } 
     regulars: [],
     heat: 0,
     rentPerDay: 0,
+    drinkStock: { pbr: 999, whiskey_sour: 999, house_special: 999 },
   };
   return { state, catalog: testCatalog };
 }
@@ -321,6 +322,7 @@ describe('staff traits', () => {
       damages: [],
       decisions: [],
       rentPaid: 0,
+      stockUsed: {},
     };
     s.day = 5;
     const { state: next } = applyReport(s, report);
@@ -394,7 +396,7 @@ describe('staff traits', () => {
     const dummyReport: ShiftReport = {
       day: 1, seed: 1, cashDelta: 0, repDelta: 0,
       customersServed: 0, customersLost: 0, wagesPaid: 0,
-      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [], rentPaid: 0,
+      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [], rentPaid: 0, stockUsed: {},
     };
     const { state: next } = applyReport(f.state, dummyReport);
     // Overnight decay is 1.5 → 4.0 - 1.5 = 2.5, clamped to [0, 5].
@@ -576,6 +578,36 @@ describe('staff traits', () => {
       }
     }
     expect(foundDoor).toBe(true);
+  });
+
+  it('stockout: zero stock for the picked drink causes walkout instead of serve', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 0, whiskey_sour: 0, house_special: 0 };
+    let totalServed = 0;
+    let totalLost = 0;
+    let stockoutWalkouts = 0;
+    for (let seed = 0; seed < 20; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 99000 + seed);
+      totalServed += r.customersServed;
+      totalLost += r.customersLost;
+      stockoutWalkouts += r.entries.filter((e) => e.kind === 'Walkout' && e.text.includes('out of stock')).length;
+    }
+    expect(totalServed).toBe(0);
+    expect(totalLost).toBeGreaterThan(0);
+    expect(stockoutWalkouts).toBeGreaterThan(0);
+  });
+
+  it('runShift records stockUsed and applyReport decrements state.drinkStock', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 50, whiskey_sour: 50, house_special: 50 };
+    const r = runShift(f.state, defaultShiftConfig, f.catalog, 100);
+    const usedTotal = Object.values(r.stockUsed).reduce((a, b) => a + b, 0);
+    expect(usedTotal).toBeGreaterThan(0);
+    expect(usedTotal).toBe(r.customersServed);
+    const { state: next } = applyReport(f.state, r);
+    for (const [id, used] of Object.entries(r.stockUsed)) {
+      expect(next.drinkStock[id]).toBe(50 - used);
+    }
   });
 
   it('Charming on Door reduces avg crisis cash penalty', () => {

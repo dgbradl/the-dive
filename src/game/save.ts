@@ -28,6 +28,7 @@ export function newGame(): GameState {
     regulars: startingRegulars.map((r) => ({ ...r })),
     heat: 0,
     rentPerDay: 40,
+    drinkStock: { pbr: 12, whiskey_sour: 8, house_special: 6 },
   };
 }
 
@@ -39,6 +40,9 @@ export function migrate(raw: unknown): GameState {
     regulars: Array.isArray(s.regulars) ? s.regulars : startingRegulars.map((r) => ({ ...r })),
     heat: typeof s.heat === 'number' ? s.heat : 0,
     rentPerDay: typeof s.rentPerDay === 'number' ? s.rentPerDay : 40,
+    drinkStock: (s.drinkStock && typeof s.drinkStock === 'object')
+      ? s.drinkStock
+      : { pbr: 12, whiskey_sour: 8, house_special: 6 },
   } as GameState;
 }
 
