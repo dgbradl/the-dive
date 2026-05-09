@@ -2,12 +2,20 @@ import { useCallback, useEffect, useState } from 'react';
 import { catalog } from './game/content';
 import { applyReport, runShift } from './game/simulator';
 import { clearSave, load, newGame, nextDaySeed, save } from './game/save';
-import { defaultShiftConfig, type GameState, type ShiftReport } from './game/types';
+import { defaultShiftConfig, Station, StaffRole, type GameState, type ShiftReport } from './game/types';
 import { PlanningPanel } from './ui/PlanningPanel';
 import { ShiftPanel } from './ui/ShiftPanel';
 import { ResultsPanel } from './ui/ResultsPanel';
 
 type Phase = 'planning' | 'shift' | 'results';
+
+function naturalStation(role: StaffRole): Station {
+  switch (role) {
+    case StaffRole.Bartender: return Station.Bar;
+    case StaffRole.Server: return Station.Floor;
+    case StaffRole.Bouncer: return Station.Door;
+  }
+}
 
 export function App() {
   const [state, setState] = useState<GameState>(() => load() ?? newGame());
@@ -46,10 +54,60 @@ export function App() {
     setPhase('planning');
   }, []);
 
+  const hireStaff = useCallback((archetypeId: string) => {
+    setState((s) => {
+      const arch = catalog.staffArchetypes.find((a) => a.id === archetypeId);
+      if (!arch) return s;
+      if (s.hiredStaff.some((h) => h.archetypeId === archetypeId)) return s;
+      if (s.cash < arch.hireCost) return s;
+      const instanceId = crypto.randomUUID();
+      return {
+        ...s,
+        cash: s.cash - arch.hireCost,
+        hiredStaff: [
+          ...s.hiredStaff,
+          {
+            instanceId,
+            archetypeId: arch.id,
+            displayName: arch.displayName,
+            mood: 70,
+            wagePerDay: arch.baseWagePerDay,
+          },
+        ],
+        assignments: [...s.assignments, { staffInstanceId: instanceId, station: naturalStation(arch.role) }],
+      };
+    });
+  }, []);
+
+  const fireStaff = useCallback((instanceId: string) => {
+    setState((s) => ({
+      ...s,
+      hiredStaff: s.hiredStaff.filter((h) => h.instanceId !== instanceId),
+      assignments: s.assignments.filter((a) => a.staffInstanceId !== instanceId),
+    }));
+  }, []);
+
+  const assignStaff = useCallback((instanceId: string, station: Station) => {
+    setState((s) => {
+      const others = s.assignments.filter((a) => a.staffInstanceId !== instanceId);
+      if (station === Station.OffShift) {
+        return { ...s, assignments: others };
+      }
+      return { ...s, assignments: [...others, { staffInstanceId: instanceId, station }] };
+    });
+  }, []);
+
   return (
     <div className="app">
       {phase === 'planning' && (
-        <PlanningPanel state={state} onStartShift={startShift} onResetSave={resetSave} />
+        <PlanningPanel
+          state={state}
+          onStartShift={startShift}
+          onResetSave={resetSave}
+          onHire={hireStaff}
+          onFire={fireStaff}
+          onAssign={assignStaff}
+        />
       )}
       {phase === 'shift' && lastReport && (
         <ShiftPanel report={lastReport} onComplete={onShiftComplete} />
