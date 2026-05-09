@@ -19,6 +19,7 @@ import {
 } from './types';
 
 const HEAT_DECISION_THRESHOLD = 2.0;
+const DOOR_DECISION_THRESHOLD = 3.5;
 const MAX_DECISIONS_PER_SHIFT = 2;
 const DECISION_COOLDOWN_TICKS = 5;
 
@@ -171,6 +172,7 @@ export function runShift(
     heatAtClose: 0,
     damages: [],
     decisions: [],
+    rentPaid: 0,
   };
 
   let heat = clampHeat(state.heat);
@@ -189,7 +191,49 @@ export function runShift(
     return gates;
   };
 
-  type DecisionKind = 'heat' | 'mishap';
+  type DecisionKind = 'heat' | 'mishap' | 'door';
+
+  const buildDoorDecision = (
+    tick: number,
+    arrivalName: string,
+  ): { entry: Omit<ShiftEntry, 'heatAfter'>; pending: PendingDecision } => {
+    const prompt = `${arrivalName} at the door — let them in?`;
+    const options: DecisionOption[] = [
+      {
+        key: 'pour',
+        label: 'Let In',
+        cashDelta: 0,
+        repDelta: 0,
+        narrative: `Marv waves ${arrivalName} in. Place keeps cooking.`,
+        isDefault: true,
+      },
+      {
+        key: 'door',
+        label: 'Refuse',
+        cashDelta: 0,
+        repDelta: 0,
+        heatDelta: -0.8,
+        narrative: `Marv shakes his head — ${arrivalName} grumbles back into the night. Heat eases.`,
+      },
+    ];
+    const idx = report.entries.length;
+    return {
+      entry: {
+        tick,
+        kind: 'Decision',
+        text: `Marv: ${prompt}`,
+        cashDelta: 0,
+        repDelta: 0,
+        decisionIndex: report.decisions.length,
+      },
+      pending: {
+        entryIndex: idx,
+        prompt,
+        options,
+        satisfiedGates: computeGates(),
+      },
+    };
+  };
 
   const buildDecision = (
     tick: number,
@@ -255,8 +299,16 @@ export function runShift(
     return true;
   };
 
-  const maybeEmitHeatDecision = (tick: number) => {
+  const maybeEmitHeatDecision = (tick: number, arrivalName?: string) => {
     if (!decisionsAvailable(tick)) return;
+    // Higher heat → door-refusal framing wins over the bar-rowdy framing.
+    if (heat >= DOOR_DECISION_THRESHOLD && arrivalName) {
+      const { entry, pending } = buildDoorDecision(tick, arrivalName);
+      addE(entry);
+      report.decisions.push(pending);
+      lastDecisionTick = tick;
+      return;
+    }
     if (heat < HEAT_DECISION_THRESHOLD) return;
     const { entry, pending } = buildDecision(tick, 'heat');
     addE(entry);
@@ -382,7 +434,7 @@ export function runShift(
           regularId: regular?.id,
           customerDisplayName: arrivalName,
         });
-        maybeEmitHeatDecision(tick);
+        maybeEmitHeatDecision(tick, arrivalName);
       }
     }
 
@@ -599,7 +651,8 @@ export function runShift(
  */
 export function applyReport(state: GameState, report: ShiftReport): { state: GameState; report: ShiftReport } {
   const wages = state.hiredStaff.reduce((sum, h) => sum + h.wagePerDay, 0);
-  const annotated: ShiftReport = { ...report, wagesPaid: wages };
+  const rent = state.rentPerDay;
+  const annotated: ShiftReport = { ...report, wagesPaid: wages, rentPaid: rent };
 
   // Aggregate loyalty deltas + last-seen tracking per regular.
   const loyaltyDelta = new Map<string, number>();
@@ -626,7 +679,7 @@ export function applyReport(state: GameState, report: ShiftReport): { state: Gam
 
   const newState: GameState = {
     ...state,
-    cash: state.cash + report.cashDelta - wages,
+    cash: state.cash + report.cashDelta - wages - rent,
     reputation: Math.max(0, Math.min(100, state.reputation + report.repDelta)),
     regulars: updatedRegulars,
     heat: clampHeat(report.heatAtClose - HEAT.overnightDecay),

@@ -150,6 +150,21 @@ export interface GameState {
   regulars: Regular[];
   /** Lingering rowdiness carried into tonight from yesterday (0..5). */
   heat: number;
+  /** Flat rent deducted from cash at the close of every shift. */
+  rentPerDay: number;
+}
+
+/** A weekly milestone — the lease threats and rep gates that pressure the run. */
+export interface Milestone {
+  id: 'day7-lease' | 'day14-rep';
+  /** The day on which the check fires (morning of). */
+  dueDay: number;
+  /** Human description of the threshold. */
+  description: string;
+  /** Returns true if the threshold is met. */
+  check(state: GameState): boolean;
+  /** Banner copy shown on planning before the check. */
+  bannerLabel(state: GameState): string;
 }
 
 export interface GameCatalog {
@@ -261,4 +276,6 @@ export interface ShiftReport {
   damages: DamageRecord[];
   /** Pause-points the player can override during cinematic playback. */
   decisions: PendingDecision[];
+  /** Rent deducted at the close of this shift. */
+  rentPaid: number;
 }

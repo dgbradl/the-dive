@@ -1,6 +1,7 @@
 import type { Drink, GameState, HiredStaff, Regular, StaffArchetype, StaffTrait, Upgrade } from '../game/types';
 import { Station } from '../game/types';
 import { catalog } from '../game/content';
+import { upcomingMilestone } from '../game/milestones';
 import { MuteButton } from './MuteButton';
 
 const STAFF_SPRITES: Record<string, string> = {
@@ -71,6 +72,8 @@ export function PlanningPanel({
           <MuteButton />
         </div>
       </div>
+
+      <MilestoneBanner state={state} />
 
       <div className="section">
         <h2>Tonight's crew</h2>
@@ -264,6 +267,19 @@ function TraitChips({ traits }: { traits: StaffTrait[] }) {
       {traits.map((t) => (
         <span key={t} className="chip">{t}</span>
       ))}
+    </div>
+  );
+}
+
+function MilestoneBanner({ state }: { state: GameState }) {
+  const m = upcomingMilestone(state);
+  if (!m) return null;
+  const daysLeft = m.dueDay - state.day;
+  const passing = m.check(state);
+  return (
+    <div className={`milestone-banner ${passing ? '' : 'warning'}`}>
+      <span className="milestone-label">{m.bannerLabel(state)}</span>
+      <span className="milestone-days">{daysLeft <= 0 ? 'TONIGHT' : `${daysLeft}d left`}</span>
     </div>
   );
 }
