@@ -3,6 +3,8 @@ import Phaser from 'phaser';
 import { BarScene } from './PhaserBarScene';
 import type { ShiftEntry, ShiftReport } from '../game/types';
 import { useCountUp } from './animation';
+import { playSfx } from './audio';
+import { MuteButton } from './MuteButton';
 
 interface CashToast {
   id: number;
@@ -89,6 +91,7 @@ export function ShiftPanel({ report, onComplete }: Props) {
       setRunningCash(cashSoFar);
       setRunningRep(repSoFar);
       if (entry.cashDelta !== 0) emitToast(entry);
+      sfxFor(entry);
       sceneRef.current?.handleEntry(entry);
       window.setTimeout(step, TICK_MS);
     };
@@ -135,7 +138,10 @@ export function ShiftPanel({ report, onComplete }: Props) {
           <span className="running-cash">{`${cashSign}$${Math.abs(animatedCash)}`}</span>
           <span className="running-rep">{`rep ${repSign}${Math.abs(animatedRep)}`}</span>
         </span>
-        <button className="skip-btn" onClick={skip}>Skip</button>
+        <span className="header-actions">
+          <MuteButton />
+          <button className="skip-btn" onClick={skip}>Skip</button>
+        </span>
       </div>
       <div className="phaser-wrap">
         <div ref={containerRef} className="phaser-container" />
@@ -157,6 +163,25 @@ export function ShiftPanel({ report, onComplete }: Props) {
       </div>
     </div>
   );
+}
+
+function sfxFor(entry: ShiftEntry): void {
+  switch (entry.kind) {
+    case 'Served':
+      if (entry.cashDelta >= 25) playSfx('chime');
+      else playSfx('coin');
+      return;
+    case 'Walkout':
+      playSfx('trombone');
+      return;
+    case 'Mishap':
+      playSfx('break');
+      return;
+    case 'Event':
+      if (entry.cashDelta >= 10) playSfx('chime');
+      else if (entry.cashDelta <= -5) playSfx('break');
+      return;
+  }
 }
 
 function formatEntry(e: { tick: number; text: string; cashDelta: number; repDelta: number }): string {

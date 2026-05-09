@@ -27,7 +27,13 @@ week-long arc rather than a 3-min run.
   15+), Yelp Reviewer (rep 35+), Wedding Party (rep 60+). 6 new tests.
   Phaser-side phase reaction (tint / time-of-night text) deferred to the
   Slice 5 juice pass.
-- ⏳ **Slice 5 — Juice pass: sound, animated numbers, end-of-day newspaper.** *Next up.*
+- ✅ **Slice 5 — Juice pass.** End-of-day newspaper (THE DIVE TIMES,
+  serif, body paragraph synthesized from `report.entries`); count-up
+  totals on the results screen and a running cash/rep readout in the
+  shift header; floating `+$N` cash toasts over the Phaser canvas;
+  procedural Web Audio SFX (coin / chime / trombone / glass break)
+  triggered per entry, with a global mute toggle persisted to
+  localStorage. No new runtime deps.
 
 ## Suggested first 5 slices
 
@@ -37,7 +43,7 @@ week-long arc rather than a 3-min run.
 | 2 | Upgrade shop + drink price UI | ✅ done | Real decisions every morning | `PlanningPanel.tsx` |
 | 3 | Staff traits actually firing in sim | ✅ done | First *depth* slice — Klutz / Lazy / Charming / Surly do something | `simulator.ts`, `types.ts` |
 | 4 | Shift phases (Early / Prime / Last Call) + rep tiers | ✅ done | Adds rhythm to shifts and visible long-arc progression | `simulator.ts`, `types.ts`, `content.ts` |
-| 5 | Juice pass: sound, number animations, end-of-day newspaper | ⏳ next | The feel axis — game stops feeling like a prototype | `ResultsPanel.tsx`, `ShiftPanel.tsx`, new `audio/` |
+| 5 | Juice pass: sound, number animations, end-of-day newspaper | ✅ done | The feel axis — game stops feeling like a prototype | `ResultsPanel.tsx`, `ShiftPanel.tsx`, new `audio.ts` |
 
 After those five, the game is genuinely fun for ~30 min. Then we choose: more
 depth (drink crafting, crisis decisions, regulars-with-loyalty) or more polish
@@ -94,18 +100,18 @@ forces real choices in mid-week. Game-over screen with restart. Touches
 `types.ts`, `App.tsx`, new `MilestoneBanner.tsx`.
 
 ### C. Polish & juice — the feel axis
-**C1.** Sound + music. Howler.js (~10kb) for SFX. Bar chatter loop, jukebox
-tracks (rotate 3), coin clink on tip, sad trombone on walkout, register
-chime on big tip, glass-break on mishap. Mute toggle in a settings menu.
-Touches new `src/audio/`, `ShiftPanel.tsx`, `ResultsPanel.tsx`.
-**C2.** End-of-day newspaper. Replace `ResultsPanel`'s grid with a
-stylized receipt/newspaper: serif headline, "BANNER NIGHT", a body
-paragraph riffing on the night's actual events ("Skeeter ejected one
-rowdy. Marv served 14. The jukebox ate three quarters."). Generated from
-`report.entries`. Touches `ResultsPanel.tsx`.
-**C3.** Number juice. Animated coin-flip when cash changes; screen flash +
-chime on big tip; rep meter fills with easing instead of jumping. Tiny but
-transformative. Touches `ShiftPanel.tsx`, `ResultsPanel.tsx`.
+**C1.** ✅ Sound. Built procedurally via Web Audio (no Howler dep, no
+asset files) in `src/ui/audio.ts`: coin / chime / trombone / glass-break
+SFX triggered per shift entry, plus a global mute toggle persisted to
+localStorage. Music loops + jukebox tracks remain unbuilt — would need
+real assets and are deferred.
+**C2.** ✅ End-of-day newspaper. `composeStory` synthesizes a paragraph
+from `report.entries` (crew callouts, event tallies, rep-tier color);
+serif "DIVE TIMES" masthead with a four-column totals strip.
+**C3.** ✅ Number juice. `useCountUp` hook (RAF + ease-out cubic) drives
+animated totals on the results panel; running cash/rep readout in the
+shift header; floating `+$N` toasts over the Phaser canvas, larger with
+a glow for tips ≥ $25.
 **C4.** Phaser scene polish. Parallax dive interior (back wall, jukebox,
 neon sign, pool table, dartboard); customers walk to *the bar counter*
 instead of a queue line; jukebox light pulses; jukebox sprite shakes when

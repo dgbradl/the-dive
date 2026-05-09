@@ -314,6 +314,20 @@ button.ghost {
   border-radius: 6px;
   border: 1px solid var(--panel-2);
 }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+.mute-btn {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--panel-2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.mute-btn[aria-pressed='true'] { color: var(--bad); border-color: var(--bad); }
 .phaser-wrap {
   position: relative;
   width: 100%;

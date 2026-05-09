@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import type { GameCatalog, GameState, ShiftReport } from '../game/types';
 import { useCountUp } from './animation';
+import { playSfx } from './audio';
 import { composeStory, pickHeadline } from './newspaper';
 
 interface Props {
@@ -13,6 +15,10 @@ export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
   const net = report.cashDelta - report.wagesPaid;
   const headline = pickHeadline(net, report.customersServed, report.customersLost);
   const sentences = composeStory(report, state, catalog);
+
+  useEffect(() => {
+    playSfx(net > 0 ? 'chime' : 'trombone');
+  }, [net]);
 
   return (
     <div className="panel results-panel">
