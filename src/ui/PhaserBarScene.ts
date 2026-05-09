@@ -30,7 +30,29 @@ interface CustomerSprite {
   /** When set, the sprite occupies a fixed bar-stool slot (0..STOOLS-1). */
   stool?: number;
   bobTween?: Phaser.Tweens.Tween;
+  /** Patience indicator (drink emoji + thinning bar) above the head. */
+  patiencePanel?: Phaser.GameObjects.Container;
+  patienceFill?: Phaser.GameObjects.Rectangle;
+  arrivalTick?: number;
+  maxPatience?: number;
 }
+
+/** Maps drink id → emoji shown in the customer's want indicator. */
+const DRINK_EMOJI: Record<string, string> = {
+  pbr: '🍺',
+  whiskey_sour: '🥃',
+  house_special: '🍹',
+};
+
+/** Patience bar palette — sepia tavern stains. */
+const PATIENCE_FILL = {
+  full:    0x4a7a5a, // stain-mint
+  warning: 0xb88a4a, // tavern-amber
+  low:     0xc84a2a, // stain-cherry
+};
+
+const PATIENCE_BAR_WIDTH = 36;
+const PATIENCE_BAR_HEIGHT = 6;
 
 const STOOLS = 5;
 
@@ -175,7 +197,31 @@ export class BarScene extends Phaser.Scene {
     this.flashBubble(x, y, line);
   }
 
+  /** Phaser calls this every frame; we use it to lock the patience panels onto their sprite. */
+  update() {
+    for (const c of this.waiting) {
+      if (!c.patiencePanel) continue;
+      c.patiencePanel.x = c.image.x;
+      c.patiencePanel.y = c.image.y - c.image.displayHeight - 12;
+    }
+  }
+
+  private updatePatienceForTick(tick: number) {
+    for (const c of this.waiting) {
+      if (!c.patienceFill || c.arrivalTick === undefined || c.maxPatience === undefined) continue;
+      const elapsed = Math.max(0, tick - c.arrivalTick);
+      const ratio = Math.max(0, Math.min(1, 1 - elapsed / c.maxPatience));
+      c.patienceFill.width = PATIENCE_BAR_WIDTH * ratio;
+      const color =
+        ratio > 0.66 ? PATIENCE_FILL.full
+        : ratio > 0.33 ? PATIENCE_FILL.warning
+        : PATIENCE_FILL.low;
+      c.patienceFill.fillColor = color;
+    }
+  }
+
   handleEntry(entry: ShiftEntry) {
+    if (entry.tick > 0) this.updatePatienceForTick(entry.tick);
     switch (entry.kind) {
       case 'CustomerArrived':
         this.spawnCustomer(entry);
@@ -205,6 +251,7 @@ export class BarScene extends Phaser.Scene {
       c.bobTween?.stop();
       c.image.destroy();
       c.nameLabel?.destroy();
+      c.patiencePanel?.destroy();
     }
     for (const c of this.tableSeated) {
       c.bobTween?.stop();
@@ -244,12 +291,31 @@ export class BarScene extends Phaser.Scene {
       }).setOrigin(0.5, 0);
     }
 
+    const drinkId = arch?.preferredDrinkIds[0];
+    const drinkGlyph = (drinkId && DRINK_EMOJI[drinkId]) ?? '🍺';
+    const patiencePanel = this.add.container(this.viewW * 0.07, y - targetH - 14);
+    const panelBg = this.add.rectangle(0, 0, PATIENCE_BAR_WIDTH + 22, 14, 0x261a10)
+      .setStrokeStyle(1, 0x0a0604);
+    const drinkText = this.add.text(-PATIENCE_BAR_WIDTH / 2 - 6, 0, drinkGlyph, {
+      fontSize: '11px',
+    }).setOrigin(0.5, 0.5);
+    const barTrack = this.add.rectangle(2, 0, PATIENCE_BAR_WIDTH, PATIENCE_BAR_HEIGHT, 0x0a0604)
+      .setStrokeStyle(1, 0x1a120a)
+      .setOrigin(0, 0.5);
+    const barFill = this.add.rectangle(2, 0, PATIENCE_BAR_WIDTH, PATIENCE_BAR_HEIGHT - 2, PATIENCE_FILL.full)
+      .setOrigin(0, 0.5);
+    patiencePanel.add([panelBg, drinkText, barTrack, barFill]);
+
     const sprite: CustomerSprite = {
       image,
       nameLabel,
       archetypeId: arch?.id ?? 'unknown',
       regularId: entry.regularId,
       stool,
+      patiencePanel,
+      patienceFill: barFill,
+      arrivalTick: entry.tick,
+      maxPatience: arch?.patienceTicks ?? 5,
     };
     this.waiting.push(sprite);
 
@@ -316,6 +382,9 @@ export class BarScene extends Phaser.Scene {
     sprite.bobTween = undefined;
     sprite.nameLabel?.destroy();
     sprite.nameLabel = undefined;
+    sprite.patiencePanel?.destroy();
+    sprite.patiencePanel = undefined;
+    sprite.patienceFill = undefined;
 
     // Named regulars stay on their stool. Anonymous customers try to
     // grab a free table seat to chill with friends; otherwise they
@@ -405,6 +474,9 @@ export class BarScene extends Phaser.Scene {
     sprite.image.setTint(COLORS.angryTint);
     sprite.bobTween?.stop();
     sprite.nameLabel?.destroy();
+    sprite.patiencePanel?.destroy();
+    sprite.patiencePanel = undefined;
+    sprite.patienceFill = undefined;
     this.tweens.add({
       targets: sprite.image,
       x: -40,
