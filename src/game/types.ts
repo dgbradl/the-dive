@@ -49,6 +49,14 @@ export interface StaffArchetype {
   emoji: string; // for placeholder visuals
 }
 
+export type ShiftPhase = 'Early' | 'Prime' | 'LastCall';
+
+export interface PhaseSpawnMultiplier {
+  early?: number;
+  prime?: number;
+  lastCall?: number;
+}
+
 export interface CustomerArchetype {
   id: string;
   displayName: string;
@@ -60,6 +68,10 @@ export interface CustomerArchetype {
   repInfluence: number;
   flavorText: string;
   emoji: string;
+  /** Min reputation before this archetype spawns. Defaults to 0. */
+  minReputation?: number;
+  /** Per-phase spawn-weight multiplier (default 1 each). */
+  phaseSpawnMultiplier?: PhaseSpawnMultiplier;
 }
 
 export interface RandomEvent {
@@ -157,6 +169,8 @@ export interface ShiftEntry {
   /** Optional refs for the Phaser visualizer. */
   customerArchetypeId?: string;
   staffInstanceId?: string;
+  /** Set on phase-change Notes so the visualizer can react. */
+  phase?: ShiftPhase;
 }
 
 export interface ShiftReport {

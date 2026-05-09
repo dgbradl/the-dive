@@ -203,6 +203,90 @@ describe('staff traits', () => {
     expect(chattyAvg).toBeLessThan(baseAvg);
   });
 
+  it('emits phase-change Notes at Early / Prime / Last Call boundaries', () => {
+    const s = freshState();
+    const r = runShift(s, defaultShiftConfig, catalog, 42);
+    const phaseNotes = r.entries.filter((e) => e.kind === 'Note' && e.phase);
+    expect(phaseNotes.map((e) => e.phase)).toEqual(['Early', 'Prime', 'LastCall']);
+    // tickCount=20 → Early begins tick 1, Prime tick 7, LastCall tick 15
+    expect(phaseNotes[0].tick).toBe(1);
+    expect(phaseNotes[1].tick).toBe(7);
+    expect(phaseNotes[2].tick).toBe(15);
+  });
+
+  it('rowdy college kids spawn more in Last Call than Early', () => {
+    // Use a clean fixture so only the dive archetypes can spawn (rep 5 gates the new ones).
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    let early = 0;
+    let lastCall = 0;
+    for (let seed = 0; seed < 200; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 5000 + seed);
+      for (const e of r.entries) {
+        if (e.kind !== 'CustomerArrived' || e.customerArchetypeId !== 'rowdy_college_kid') continue;
+        if (e.tick <= 6) early++;
+        else if (e.tick >= 15) lastCall++;
+      }
+    }
+    expect(lastCall).toBeGreaterThan(early);
+  });
+
+  it('archetypes with minReputation do not spawn below that reputation', () => {
+    const s = freshState();
+    s.reputation = 0;
+    let dateNight = 0;
+    let yelp = 0;
+    let wedding = 0;
+    for (let seed = 0; seed < 50; seed++) {
+      const r = runShift(s, defaultShiftConfig, catalog, 9000 + seed);
+      for (const e of r.entries) {
+        if (e.kind !== 'CustomerArrived') continue;
+        if (e.customerArchetypeId === 'date_night_couple') dateNight++;
+        if (e.customerArchetypeId === 'yelp_reviewer') yelp++;
+        if (e.customerArchetypeId === 'wedding_party') wedding++;
+      }
+    }
+    expect(dateNight).toBe(0);
+    expect(yelp).toBe(0);
+    expect(wedding).toBe(0);
+  });
+
+  it('Date-Night couples start spawning once reputation crosses 15', () => {
+    const s = freshState();
+    s.reputation = 50;
+    let dateNight = 0;
+    for (let seed = 0; seed < 50; seed++) {
+      const r = runShift(s, defaultShiftConfig, catalog, 9500 + seed);
+      for (const e of r.entries) {
+        if (e.kind === 'CustomerArrived' && e.customerArchetypeId === 'date_night_couple') {
+          dateNight++;
+        }
+      }
+    }
+    expect(dateNight).toBeGreaterThan(0);
+  });
+
+  it('Wedding Party gates at rep 60 — not at 50, present at 80', () => {
+    const s = freshState();
+    s.reputation = 50;
+    let weddingsAt50 = 0;
+    let weddingsAt80 = 0;
+    for (let seed = 0; seed < 50; seed++) {
+      const r = runShift(s, defaultShiftConfig, catalog, 11000 + seed);
+      weddingsAt50 += r.entries.filter(
+        (e) => e.kind === 'CustomerArrived' && e.customerArchetypeId === 'wedding_party',
+      ).length;
+    }
+    s.reputation = 80;
+    for (let seed = 0; seed < 50; seed++) {
+      const r = runShift(s, defaultShiftConfig, catalog, 11000 + seed);
+      weddingsAt80 += r.entries.filter(
+        (e) => e.kind === 'CustomerArrived' && e.customerArchetypeId === 'wedding_party',
+      ).length;
+    }
+    expect(weddingsAt50).toBe(0);
+    expect(weddingsAt80).toBeGreaterThan(0);
+  });
+
   it('Charming on Door reduces avg crisis cash penalty', () => {
     // Both fixtures have a bartender so the shift runs; only the Door staff differs.
     const base = fixture([

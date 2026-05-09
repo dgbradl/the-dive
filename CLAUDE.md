@@ -72,11 +72,11 @@ src/
 
 ## Where we are
 
-- Slices 1, 2, 3 of the backlog are shipped (hire/fire UI, drink prices +
-  upgrade shop, staff traits firing in the simulator).
-- Next up is **Slice 4: shift phases (Early / Prime / Last Call) + reputation
-  tiers gating new customer types.** See `docs/BACKLOG.md` for the full plan
-  and current progress.
+- Slices 1–4 of the backlog are shipped (hire/fire UI, drink prices +
+  upgrade shop, staff traits firing in the simulator, shift phases + rep
+  tiers gating new customer archetypes).
+- Next up is **Slice 5: juice pass (sound, animated numbers, end-of-day
+  newspaper).** See `docs/BACKLOG.md` for the full plan and current progress.
 
 ## Don't
 
