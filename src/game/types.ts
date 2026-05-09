@@ -140,6 +140,8 @@ export interface GameState {
   assignments: StaffAssignment[];
   nightlySpecialDrinkId: string | null;
   regulars: Regular[];
+  /** Lingering rowdiness carried into tonight from yesterday (0..5). */
+  heat: number;
 }
 
 export interface GameCatalog {
@@ -190,6 +192,16 @@ export interface ShiftEntry {
   customerDisplayName?: string;
   /** Set on phase-change Notes so the visualizer can react. */
   phase?: ShiftPhase;
+  /** Set on Mishap entries that broke physical property. */
+  damageItem?: string;
+  /** Heat level immediately after this tick resolves (0..5). */
+  heatAfter?: number;
+}
+
+export interface DamageRecord {
+  tick: number;
+  item: string;
+  cost: number;
 }
 
 export interface ShiftReport {
@@ -201,4 +213,8 @@ export interface ShiftReport {
   customersLost: number;
   wagesPaid: number;
   entries: ShiftEntry[];
+  /** Heat at close of shift (0..5). */
+  heatAtClose: number;
+  /** Damage accumulated tonight, itemized. */
+  damages: DamageRecord[];
 }

@@ -72,20 +72,17 @@ src/
 
 ## Where we are
 
-- Slices 1–7 + 8a are shipped. Slice 8a added the screenshot's HUD
-  chrome — top chalkboard (`SHIFT NN / DAY · phase · clock`), bottom
-  TILL/TIME/HEAT/DAMAGE status strip (HEAT and DAMAGE are stubs until
-  Slice 8b), bartender dialogue line, and a 5-button action bar (POUR
-  / CUT OFF / 86 HIM / RING UP / DOOR, all disabled until Slice 8c).
-  Phaser scene now seats named regulars at fixed bar-stool slots and
-  flashes a brief speech bubble on arrival. The shift log is hidden
-  behind a `<details>` summary now that the HUD is the focus.
-- Next up:
-  - **Slice 8b — HEAT + DAMAGE in the sim.** Wire the stub HUD values
-    to real sim concepts (rowdiness rises with mishaps, decays with
-    serves; damage entries get an `item` field).
-  - **Slice 8c — Active action bar (B6).** `runShift` evolves to
-    two-phase replay so the player can intervene at decision points.
+- Slices 1–7 + 8a + 8b are shipped. 8b added real HEAT + DAMAGE
+  to the simulator: `GameState.heat` (0..5) carries overnight; rowdy
+  / wedding arrivals, mishaps, and walkouts raise it; serves and
+  passive per-tick decay calm it. Mishap entries gain a `damageItem`
+  and contribute itemized records to `report.damages`. Every
+  `ShiftEntry` carries a `heatAfter` snapshot so the HUD reads the
+  running level by replaying entries. The status strip's HEAT pip
+  meter and DAMAGE cell now show real values with item lists.
+- Next up: **Slice 8c — Active action bar (B6).** `runShift` evolves
+  to two-phase replay so the player can intervene at decision points
+  (POUR / CUT OFF / 86 HIM / RING UP / DOOR).
 
 ## Don't
 

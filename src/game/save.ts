@@ -26,15 +26,17 @@ export function newGame(): GameState {
     assignments: [{ staffInstanceId: marvId, station: Station.Bar }],
     nightlySpecialDrinkId: null,
     regulars: startingRegulars.map((r) => ({ ...r })),
+    heat: 0,
   };
 }
 
 export function migrate(raw: unknown): GameState {
-  // Defensive: synthesize missing v2 fields on legacy saves.
+  // Defensive: synthesize missing fields on legacy saves.
   const s = raw as Partial<GameState>;
   return {
     ...s,
     regulars: Array.isArray(s.regulars) ? s.regulars : startingRegulars.map((r) => ({ ...r })),
+    heat: typeof s.heat === 'number' ? s.heat : 0,
   } as GameState;
 }
 
