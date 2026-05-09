@@ -98,6 +98,7 @@ html, body, #root {
 .staff-name { font-size: 15px; color: var(--text); }
 .staff-role { font-size: 11px; color: var(--text-dim); }
 .staff-flavor { font-size: 11px; color: var(--text-dim); font-style: italic; line-height: 1.4; }
+.trait-summary { font-size: 11px; color: var(--accent); line-height: 1.4; }
 
 .fire-btn {
   background: transparent;

@@ -194,6 +194,7 @@ interface HireCardProps {
 
 function HireCard({ archetype, cash, onHire }: HireCardProps) {
   const canAfford = cash >= archetype.hireCost;
+  const summary = describeTraits(archetype.traits);
   return (
     <li className="staff-card hire-card">
       <span className="emoji">{archetype.emoji}</span>
@@ -201,6 +202,7 @@ function HireCard({ archetype, cash, onHire }: HireCardProps) {
         <div className="staff-name">{archetype.displayName}</div>
         <div className="staff-role">{archetype.role} · ${archetype.baseWagePerDay}/day</div>
         <TraitChips traits={archetype.traits} />
+        {summary && <div className="trait-summary">{summary}</div>}
         <div className="staff-flavor">{archetype.flavorText}</div>
         <button
           className="hire-btn"
@@ -212,6 +214,19 @@ function HireCard({ archetype, cash, onHire }: HireCardProps) {
       </div>
     </li>
   );
+}
+
+const TRAIT_DESCRIPTIONS: Record<StaffTrait, string> = {
+  Quick: 'faster service at the bar',
+  Lazy: 'takes a smoke break each shift',
+  Klutz: 'drops trays on the floor',
+  Charming: '+30% tips, defuses crises at the door',
+  Surly: '−30% tips',
+  Chatty: 'customers wait longer',
+};
+
+function describeTraits(traits: StaffTrait[]): string {
+  return traits.map((t) => TRAIT_DESCRIPTIONS[t]).join(' · ');
 }
 
 function TraitChips({ traits }: { traits: StaffTrait[] }) {

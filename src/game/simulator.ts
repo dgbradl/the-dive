@@ -5,45 +5,64 @@ import {
   type Drink,
   type GameCatalog,
   type GameState,
+  type HiredStaff,
   type ShiftConfig,
   type ShiftEntry,
   type ShiftReport,
+  type StaffArchetype,
+  type StaffTrait,
 } from './types';
+
+// Trait magnitudes — tunable in one place.
+const TRAIT = {
+  // Bar-only.
+  quickCapacityChance: 0.25,   // per Quick at bar, per tick: chance of +1 capacity
+  // Floor-only.
+  klutzTrayChance: 0.08,       // per Klutz on floor, per serve: chance of a tray drop
+  // Customer-facing (bar + floor).
+  charmingTipMult: 1.30,       // per Charming
+  surlyTipMult: 0.70,          // per Surly
+  chattyPatienceBonus: 1,      // per Chatty
+  chattyPatienceCap: 3,        // total max bonus across all Chatty
+  // Door-only.
+  doorCharmDefuseChance: 0.6,  // per Charming on door: chance to fully defuse a Crisis
+};
 
 interface WaitingCustomer {
   archetype: CustomerArchetype;
   patienceLeft: number;
 }
 
+interface OnShift {
+  hired: HiredStaff;
+  archetype: StaffArchetype;
+}
+
 interface StationSummary {
-  barStaff: number;
-  floorStaff: number;
-  doorStaff: number;
-  barSpeed: number;
-  floorCharm: number;
+  bar: OnShift[];
+  floor: OnShift[];
+  door: OnShift[];
 }
 
 function summarizeStations(state: GameState, catalog: GameCatalog): StationSummary {
-  const s: StationSummary = { barStaff: 0, floorStaff: 0, doorStaff: 0, barSpeed: 0, floorCharm: 0 };
+  const out: StationSummary = { bar: [], floor: [], door: [] };
   for (const a of state.assignments) {
     const hired = state.hiredStaff.find((h) => h.instanceId === a.staffInstanceId);
     if (!hired) continue;
-    const arch = catalog.staffArchetypes.find((x) => x.id === hired.archetypeId);
+    const archetype = catalog.staffArchetypes.find((x) => x.id === hired.archetypeId);
+    if (!archetype) continue;
+    const ref: OnShift = { hired, archetype };
     switch (a.station) {
-      case Station.Bar:
-        s.barStaff++;
-        s.barSpeed += arch?.speed ?? 0.4;
-        break;
-      case Station.Floor:
-        s.floorStaff++;
-        s.floorCharm += arch?.charm ?? 0.4;
-        break;
-      case Station.Door:
-        s.doorStaff++;
-        break;
+      case Station.Bar: out.bar.push(ref); break;
+      case Station.Floor: out.floor.push(ref); break;
+      case Station.Door: out.door.push(ref); break;
     }
   }
-  return s;
+  return out;
+}
+
+function withTrait(staff: OnShift[], trait: StaffTrait): OnShift[] {
+  return staff.filter((s) => s.archetype.traits.includes(trait));
 }
 
 function pickDrinkForCustomer(arch: CustomerArchetype, catalog: GameCatalog, rng: Rng): Drink | null {
@@ -69,8 +88,8 @@ function addEntry(report: ShiftReport, entry: ShiftEntry) {
 
 /**
  * Pure function. Same (state, seed) always produces the same report.
- * The caller (GameManager / App) is responsible for applying the report
- * to the persisted GameState.
+ * The caller (App) is responsible for applying the report to the
+ * persisted GameState.
  */
 export function runShift(
   state: GameState,
@@ -91,6 +110,27 @@ export function runShift(
 
   const rng = new Rng(seed);
   const stations = summarizeStations(state, catalog);
+
+  const barCount = stations.bar.length;
+  const floorCount = stations.floor.length;
+  const doorCount = stations.door.length;
+  const barSpeed = stations.bar.reduce((sum, s) => sum + s.archetype.speed, 0);
+  const floorCharm = stations.floor.reduce((sum, s) => sum + s.archetype.charm, 0);
+
+  // Customer-facing stations are where charm/surl/chat traits fire.
+  const customerFacing: OnShift[] = [...stations.bar, ...stations.floor];
+  const charmingCount = withTrait(customerFacing, 'Charming').length;
+  const surlyCount = withTrait(customerFacing, 'Surly').length;
+  const chattyCount = withTrait(customerFacing, 'Chatty').length;
+  const patienceBonus = Math.min(chattyCount * TRAIT.chattyPatienceBonus, TRAIT.chattyPatienceCap);
+
+  // Bar-only.
+  const quickAtBar = withTrait(stations.bar, 'Quick');
+  const lazyAtBar = withTrait(stations.bar, 'Lazy');
+  // Floor-only.
+  const klutzAtFloor = withTrait(stations.floor, 'Klutz');
+  // Door.
+  const charmingAtDoor = withTrait(stations.door, 'Charming').length;
 
   // Aggregate upgrade modifiers
   let spawnMult = config.spawnRateScale;
@@ -113,13 +153,20 @@ export function runShift(
     });
   }
 
+  // Schedule Lazy "smoke break" ticks at shift start — one per Lazy at bar.
+  const lazyTicks = new Map<number, OnShift>();
+  for (const lazy of lazyAtBar) {
+    const t = rng.intBetween(2, Math.max(2, config.tickCount - 1));
+    if (!lazyTicks.has(t)) lazyTicks.set(t, lazy);
+  }
+
   const waiting: WaitingCustomer[] = [];
 
   for (let tick = 1; tick <= config.tickCount; tick++) {
-    // 1. Spawn customers
+    // 1. Spawn customers (Chatty extends patience)
     for (const arch of catalog.customerArchetypes) {
       if (rng.next() < arch.spawnWeight * spawnMult) {
-        waiting.push({ archetype: arch, patienceLeft: arch.patienceTicks });
+        waiting.push({ archetype: arch, patienceLeft: arch.patienceTicks + patienceBonus });
         addEntry(report, {
           tick,
           kind: 'CustomerArrived',
@@ -132,10 +179,27 @@ export function runShift(
     }
 
     // 2. Service capacity for this tick
-    let capacity = stations.barStaff + (stations.floorStaff > 0 ? 1 : 0);
-    if (stations.barStaff > 0) {
-      const speedBonus = stations.barSpeed / Math.max(1, stations.barStaff);
+    let capacity = barCount + (floorCount > 0 ? 1 : 0);
+    if (barCount > 0) {
+      const speedBonus = barSpeed / Math.max(1, barCount);
       if (rng.next() < speedBonus * 0.5) capacity += 1;
+    }
+    // Quick: per-tick chance of +1 capacity per Quick at bar.
+    for (let i = 0; i < quickAtBar.length; i++) {
+      if (rng.next() < TRAIT.quickCapacityChance) capacity += 1;
+    }
+    // Lazy: scheduled smoke break this tick.
+    const lazyThisTick = lazyTicks.get(tick);
+    if (lazyThisTick) {
+      capacity = Math.max(0, capacity - 1);
+      addEntry(report, {
+        tick,
+        kind: 'Note',
+        text: `${lazyThisTick.hired.displayName} ducks out for a smoke. Service stalls.`,
+        cashDelta: 0,
+        repDelta: 0,
+        staffInstanceId: lazyThisTick.hired.instanceId,
+      });
     }
 
     // 3. Serve waiting customers
@@ -148,10 +212,15 @@ export function runShift(
       const cost = drink?.costToMake ?? 2;
       const baseTip = Math.round(price * c.archetype.tipMultiplier);
       const charmFactor =
-        stations.floorStaff > 0
-          ? Math.min(1.5, 1 + stations.floorCharm / Math.max(1, stations.floorStaff))
+        floorCount > 0
+          ? Math.min(1.5, 1 + floorCharm / Math.max(1, floorCount))
           : 1;
-      const tip = Math.round((baseTip + passiveTipBonus) * charmFactor);
+      // Trait modifiers stack multiplicatively: each Charming +10%, each Surly -30%.
+      const tipMult =
+        charmFactor *
+        Math.pow(TRAIT.charmingTipMult, charmingCount) *
+        Math.pow(TRAIT.surlyTipMult, surlyCount);
+      const tip = Math.max(0, Math.round((baseTip + passiveTipBonus) * tipMult));
 
       const net = price - cost + tip + config.atmosphereCashPerCustomer;
       const rep = Math.round(c.archetype.repInfluence * config.repPerSatisfied);
@@ -168,7 +237,7 @@ export function runShift(
         customerArchetypeId: c.archetype.id,
       });
 
-      // Mishap roll on served customer
+      // Customer-driven mishap roll (existing behavior).
       if (rng.next() < c.archetype.mishapChance) {
         const mishapCost = -rng.intBetween(2, 8);
         addEntry(report, {
@@ -179,6 +248,21 @@ export function runShift(
           repDelta: -1,
           customerArchetypeId: c.archetype.id,
         });
+      }
+
+      // Klutz: per Klutz on floor, chance to drop a tray after this serve.
+      for (const klutz of klutzAtFloor) {
+        if (rng.next() < TRAIT.klutzTrayChance) {
+          const dropCost = -rng.intBetween(2, 6);
+          addEntry(report, {
+            tick,
+            kind: 'Mishap',
+            text: `${klutz.hired.displayName} drops a tray.`,
+            cashDelta: dropCost,
+            repDelta: 0,
+            staffInstanceId: klutz.hired.instanceId,
+          });
+        }
       }
     }
 
@@ -211,10 +295,20 @@ export function runShift(
         let cd = ev.cashDelta;
         let rd = ev.repDelta;
         let narrative = ev.narrative;
-        if (ev.tone === 'Crisis' && stations.doorStaff > 0) {
+        if (ev.tone === 'Crisis' && doorCount > 0) {
+          // Standard bouncer presence halves the impact.
           cd = Math.round(cd / 2);
           rd = Math.round(rd / 2);
           narrative = `${ev.displayName} — bouncer steps in, defuses it.`;
+          // Charming on Door: per Charming, chance to fully defuse instead.
+          for (let i = 0; i < charmingAtDoor; i++) {
+            if (rng.next() < TRAIT.doorCharmDefuseChance) {
+              cd = 0;
+              rd = 0;
+              narrative = `${ev.displayName} — bouncer charms them right back out the door.`;
+              break;
+            }
+          }
         }
         addEntry(report, {
           tick,
