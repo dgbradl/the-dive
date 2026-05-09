@@ -3,6 +3,18 @@ import { Station } from '../game/types';
 import { catalog } from '../game/content';
 import { MuteButton } from './MuteButton';
 
+const STAFF_SPRITES: Record<string, string> = {
+  marv_bartender: '/sprites/marv.png',
+  skeeter_bouncer: '/sprites/skeeter.png',
+  dee_server: '/sprites/dee.png',
+};
+
+function StaffPortrait({ archetypeId, fallback }: { archetypeId: string | undefined; fallback: string }) {
+  const src = archetypeId ? STAFF_SPRITES[archetypeId] : undefined;
+  if (src) return <img className="portrait" src={src} alt="" width={48} height={48} />;
+  return <span className="emoji">{fallback}</span>;
+}
+
 interface Props {
   state: GameState;
   onStartShift: () => void;
@@ -43,7 +55,10 @@ export function PlanningPanel({
   return (
     <div className="panel planning-panel">
       <div className="header">
-        <h1>Day {state.day}</h1>
+        <h1>
+          <img className="wordmark" src="/brand/wordmark-stamp.svg" alt="The Dive" />
+          <span>Day {state.day}</span>
+        </h1>
         <div className="stats">
           <div className="stat">
             <span className="label">Cash</span>
@@ -164,7 +179,7 @@ interface HiredCardProps {
 function HiredCard({ hired, archetype, station, onAssign, onFire }: HiredCardProps) {
   return (
     <li className="staff-card">
-      <span className="emoji">{archetype?.emoji ?? '🧍'}</span>
+      <StaffPortrait archetypeId={hired.archetypeId} fallback={archetype?.emoji ?? '🧍'} />
       <div className="staff-meta">
         <div className="staff-row-top">
           <span className="staff-name">{hired.displayName}</span>
@@ -199,7 +214,7 @@ function HireCard({ archetype, cash, onHire }: HireCardProps) {
   const summary = describeTraits(archetype.traits);
   return (
     <li className="staff-card hire-card">
-      <span className="emoji">{archetype.emoji}</span>
+      <StaffPortrait archetypeId={archetype.id} fallback={archetype.emoji} />
       <div className="staff-meta">
         <div className="staff-name">{archetype.displayName}</div>
         <div className="staff-role">{archetype.role} · ${archetype.baseWagePerDay}/day</div>

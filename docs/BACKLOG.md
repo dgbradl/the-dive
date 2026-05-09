@@ -34,6 +34,21 @@ week-long arc rather than a 3-min run.
   procedural Web Audio SFX (coin / chime / trombone / glass break)
   triggered per entry, with a global mute toggle persisted to
   localStorage. No new runtime deps.
+- ✅ **Slice 6 — Sepia Tavern reskin.** Adopted the design-system tokens
+  (warm sepia palette, Press Start 2P / VT323 / Rye / Special Elite font
+  stack, etched borders, no rounded corners) over the entire UI. Pixel
+  portraits replace emoji for Marv / Dee / Skeeter on the planning
+  panel. Phaser scene preloads sprites and renders the bar with a
+  bottle-shelf sprite, wood-paneling backdrop, and the named-archetype
+  customers (dive_regular / lost_tourist / rowdy_college_kid + generic
+  fallback for the rep-tier archetypes). Newspaper rebuilt as a
+  typewriter receipt (Special Elite body, Press Start 2P headline,
+  pixel-label totals strip). Wordmark stamp in the planning header.
+- ⏳ **Slice 7 — Named regulars (B7).** *Next up.* Per-customer instances
+  with persistent loyalty, named portraits at fixed bar stools.
+- ⏳ **Slice 8 — Action bar / crisis decisions (B6).** Interactive shift
+  decisions (POUR / CUT OFF / 86 HIM / RING UP / DOOR), `runShift`
+  evolves to two-phase replay so it stays pure.
 
 ## Suggested first 5 slices
 

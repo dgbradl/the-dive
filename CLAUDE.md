@@ -72,16 +72,17 @@ src/
 
 ## Where we are
 
-- Slices 1–5 of the backlog are shipped (hire/fire UI, drink prices +
-  upgrade shop, staff traits firing in the simulator, shift phases + rep
-  tiers gating new customer archetypes, juice pass: end-of-day newspaper
-  + count-up totals + floating cash toasts + procedural Web Audio SFX
-  with a global mute toggle).
-- The "first five" sequencing from `docs/BACKLOG.md` is complete. Next
-  direction is a choice between depth (B5 inventory, B6 crisis decisions,
-  B7 regulars-with-loyalty, B9 weekly milestone goals) and remaining
-  polish (C4 Phaser scene polish, C5 thought bubbles, C7 pixel art).
-  See `docs/BACKLOG.md`.
+- Slices 1–6 of the backlog are shipped. Slice 6 ("Sepia Tavern reskin")
+  swapped the entire UI to a pixel-art design system: sepia palette,
+  Press Start 2P / VT323 / Rye / Special Elite fonts, portrait sprites,
+  wood-paneling backdrop and bottle-shelf in the Phaser scene, typewriter
+  receipt newspaper. Assets live in `public/{sprites,textures,brand}/`.
+  Tokens live at the top of `src/index.css`.
+- Next up is **Slice 7 — Named regulars** (B7-flavored): per-customer
+  instances with persistent loyalty, named portraits at fixed stools.
+  Then **Slice 8 — Action bar / crisis decisions** (B6). See
+  `docs/BACKLOG.md` for the full roadmap including the design-system
+  context.
 
 ## Don't
 
