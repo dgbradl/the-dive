@@ -144,6 +144,19 @@ week-long arc rather than a 3-min run.
   Each pour consumes one unit of EACH base; stockout on either →
   walkout naming the missing ingredient. +2 rep + 20% tip multiplier
   on signature serves. Newspaper calls them out by name.
+- ✅ **Slice 12 — Career stats on bankruptcy (D1).** Cross-run
+  ledger in `bargame.career.v1`: runsPlayed, daysSurvivedTotal,
+  bestRunDays, bestRunCash, biggestTip, busiestNight. Updated on
+  shift end (recordShift) and run end (recordRunEnd, fired on lease
+  loss or manual reset). New CAREER LEDGER card on GameOverPanel.
+  5 new tests.
+- ✅ **Slice 13 — Jukebox (C4 partial).** Small upright jukebox
+  between the floor tables: lit amber screen flickers every 4s,
+  cabinet shakes for a beat when an 'eats a quarter' Event fires.
+- ✅ **Slice 14 — Variable tick pacing (C6).** Cinematic timing per
+  entry kind: Event 600 ms, Mishap 500 ms, phase Note 500 ms, Wages
+  200 ms, default 220 ms. Crisis-flavored Events (inspector / fight /
+  scrap / brawl) trigger a 220 ms camera shake + 120 ms amber flash.
 
 ## Suggested first 5 slices
 
@@ -214,15 +227,14 @@ serif "DIVE TIMES" masthead with a four-column totals strip.
 animated totals on the results panel; running cash/rep readout in the
 shift header; floating `+$N` toasts over the Phaser canvas, larger with
 a glow for tips ≥ $25.
-**C4.** ⏳ Phaser scene polish. Most done in Slices 8e/8f/8k (back-wall
-+ floor bands, neon "Last Call" sign, smoke haze, two tables with seated
-customers, named regulars on stools). **Still open:** jukebox sprite
-that shakes on "eats a quarter", dartboard, pool table.
+**C4.** ⏳ Phaser scene polish. Mostly done across Slices 8e / 8f / 8k /
+13: back-wall + floor bands, neon "Last Call" sign, smoke haze, two
+tables with seated customers, named regulars on stools, jukebox that
+shakes on "eats a quarter". **Still open:** dartboard, pool table.
 **C5.** ✅ Customer thought bubbles + patience bars. Drink emoji + a
 thinning bar above each waiting customer's head. Slice 8g.
-**C6.** Variable tick pacing. Slow ticks during events (let the player
-read), faster ticks during quiet stretches, camera punch on a Crisis.
-Touches `ShiftPanel.tsx` (timing), `PhaserBarScene.ts` (camera).
+**C6.** ✅ Variable tick pacing. Per-entry ms in `tickMsFor`; Crisis
+events trigger a camera shake + amber flash. Slice 14.
 **C7.** ⏳ Pixel-art sprite swap. Static portraits ship in Slice 6 (the
 Sepia Tavern asset drop). **Still open:** 4-frame walk cycles for
 customer/staff sprites — needs new art that we don't have yet.
@@ -231,8 +243,9 @@ bar; Shift → Results = lights-up cut. Sells the world. Touches `App.tsx`,
 `PhaserBarScene.ts`.
 
 ### D. Meta / replayability (after first run is fun)
-**D1.** Career stats screen on bankruptcy. Days survived, biggest tip,
-busiest night, who got fired most.
+**D1.** ✅ Career stats screen on bankruptcy. CAREER LEDGER card on
+GameOverPanel with runsPlayed / bestRunDays / bestRunCash /
+biggestTip / busiestNight / lifetimeDays. Slice 12.
 **D2.** Multiple starting scenarios. "Inherited dive" (default), "Bought a
 wreck" (less cash, more disrepair), "Pop-up bar" (3-day timer for huge
 profit).
@@ -255,18 +268,16 @@ doors", assert phase transitions. JSDOM + React Testing Library.
 ## What's still open
 
 **A + B (depth):** all done.
-**Polish (C):** C4 (jukebox/dartboard remaining), C6 variable tick
-pacing, C7 walk-cycle sprites (needs art), C8 transitions.
-**Meta (D):** D1 career stats on bankruptcy, D2 starting scenarios,
-D3 achievements, D4 daily seed challenge.
+**Polish (C):** C4 (dartboard / pool table remain), C7 walk-cycle
+sprites (needs art), C8 transitions.
+**Meta (D):** D2 starting scenarios, D3 achievements, D4 daily seed
+challenge.
 **Tech (E):** E2 PWA icons, E4 settings panel, E5 Phaser bundle
 splitting, E6 UI smoke tests.
 
 ## Critical files for the open items
 
-- `src/ui/PhaserBarScene.ts` — C4, C6, C7, C8
-- `src/ui/ShiftPanel.tsx` — C6
-- `src/ui/GameOverPanel.tsx` — D1
+- `src/ui/PhaserBarScene.ts` — C4, C7, C8
 - `src/App.tsx` — D2, E5
 - `vite.config.ts` — E2, E5
 - new `Settings.tsx` — E4
@@ -303,11 +314,10 @@ splitting, E6 UI smoke tests.
 
 ## Highest-leverage next moves
 
-1. **D1 Career stats on bankruptcy.** The `GameOverPanel` is begging
-   for it; stash a `careerStats` slice that tracks best night, biggest
-   tip, longest streak across runs. Turns each run into a record-chase.
-2. **C4 Phaser scene polish (jukebox).** Animated jukebox sprite that
-   shakes when an "eats a quarter" event fires.
-3. **C6 Variable tick pacing.** Slow ticks during events / fast on
-   quiet stretches; small `TICK_MS` tweak per entry kind in
-   `ShiftPanel`.
+1. **D2 Starting scenarios.** "Inherited dive" (default), "Bought a
+   wreck" (less cash, more disrepair), "Pop-up bar" (3-day timer for
+   huge profit). Adds replayability variety after the first lease run.
+2. **E5 Phaser bundle splitting.** Phaser is 1.4 MB; lazy-import on
+   first navigation to ShiftPanel so planning loads instantly.
+3. **C8 Animated transitions.** Planning → Shift dolly, Shift →
+   Results lights-up cut. Sells the world.
