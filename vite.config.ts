@@ -15,17 +15,24 @@ export default defineConfig({
         'brand/*.svg',
       ],
       manifest: {
-        name: 'BarGame',
-        short_name: 'BarGame',
-        description: 'A whimsical turn-based bar management game.',
-        theme_color: '#1a0f1f',
-        background_color: '#1a0f1f',
+        name: 'The Dive',
+        short_name: 'The Dive',
+        description: 'Run a sepia-tavern dive bar — pick scenarios, pour drinks, survive the lease.',
+        theme_color: '#1a120a',
+        background_color: '#1a120a',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+          // The favicon.svg is scalable so it covers both 192 and 512 install
+          // sizes plus any density Android picks. Maskable lets adaptive
+          // launchers crop without clipping the wordmark.
+          {
+            src: '/favicon.svg',
+            sizes: 'any',
+            type: 'image/svg+xml',
+            purpose: 'any maskable',
+          },
         ],
       },
     }),
