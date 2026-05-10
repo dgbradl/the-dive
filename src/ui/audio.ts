@@ -6,6 +6,8 @@
 export type SfxKind = 'coin' | 'trombone' | 'chime' | 'break' | 'click';
 
 const MUTE_KEY = 'bargame.muted';
+const VOLUME_KEY = 'bargame.volume';
+const DEFAULT_VOLUME = 0.7;
 
 let ctx: AudioContext | null = null;
 let muted = (() => {
@@ -15,8 +17,19 @@ let muted = (() => {
     return false;
   }
 })();
+let volume = (() => {
+  try {
+    const raw = localStorage.getItem(VOLUME_KEY);
+    if (raw === null) return DEFAULT_VOLUME;
+    const v = Number.parseFloat(raw);
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : DEFAULT_VOLUME;
+  } catch {
+    return DEFAULT_VOLUME;
+  }
+})();
 
-const listeners = new Set<(m: boolean) => void>();
+const muteListeners = new Set<(m: boolean) => void>();
+const volumeListeners = new Set<(v: number) => void>();
 
 export function isMuted(): boolean {
   return muted;
@@ -29,12 +42,31 @@ export function setMuted(value: boolean): void {
   } catch {
     // ignore
   }
-  listeners.forEach((l) => l(muted));
+  muteListeners.forEach((l) => l(muted));
 }
 
 export function subscribeMute(fn: (muted: boolean) => void): () => void {
-  listeners.add(fn);
-  return () => listeners.delete(fn);
+  muteListeners.add(fn);
+  return () => muteListeners.delete(fn);
+}
+
+export function getVolume(): number {
+  return volume;
+}
+
+export function setVolume(value: number): void {
+  volume = Math.max(0, Math.min(1, value));
+  try {
+    localStorage.setItem(VOLUME_KEY, String(volume));
+  } catch {
+    // ignore
+  }
+  volumeListeners.forEach((l) => l(volume));
+}
+
+export function subscribeVolume(fn: (v: number) => void): () => void {
+  volumeListeners.add(fn);
+  return () => volumeListeners.delete(fn);
 }
 
 function getCtx(): AudioContext | null {
@@ -80,7 +112,7 @@ function tone(ac: AudioContext, t0: number, opts: {
   if (opts.freqEnd !== undefined) {
     osc.frequency.exponentialRampToValueAtTime(Math.max(20, opts.freqEnd), t0 + (opts.decay ?? 0.2));
   }
-  const peak = opts.gain ?? 0.18;
+  const peak = (opts.gain ?? 0.18) * volume;
   const attack = opts.attack ?? 0.005;
   const decay = opts.decay ?? 0.2;
   g.gain.setValueAtTime(0, t0);
@@ -127,7 +159,7 @@ function glassBreak(ac: AudioContext, t0: number): void {
   filter.frequency.value = 3500;
   filter.Q.value = 1.4;
   const g = ac.createGain();
-  g.gain.setValueAtTime(0.22, t0);
+  g.gain.setValueAtTime(0.22 * volume, t0);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
   src.connect(filter);
   filter.connect(g);

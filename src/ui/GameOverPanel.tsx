@@ -1,3 +1,4 @@
+import { ACHIEVEMENTS } from '../game/achievements';
 import type { CareerStats } from '../game/careerStats';
 import { SCENARIOS } from '../game/scenarios';
 import type { GameState } from '../game/types';
@@ -57,6 +58,10 @@ export function GameOverPanel({ state, career, onRestart }: Props) {
           <div className="career-row">
             <dt>Busiest night</dt>
             <dd>{career.busiestNight} served</dd>
+          </div>
+          <div className="career-row">
+            <dt>Achievements</dt>
+            <dd>{career.unlockedAchievements.length} / {ACHIEVEMENTS.length}</dd>
           </div>
         </dl>
       </article>
