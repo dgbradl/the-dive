@@ -1,10 +1,12 @@
 import type { Drink, GameState, HiredStaff, Regular, StaffArchetype, StaffTrait, Upgrade } from '../game/types';
 import { Station } from '../game/types';
 import { catalog } from '../game/content';
+import { useState } from 'react';
 import { upcomingMilestone } from '../game/milestones';
 import { getScenario } from '../game/scenarios';
 import { MuteButton } from './MuteButton';
 import { RecipeBook } from './RecipeBook';
+import { Settings } from './Settings';
 
 const STAFF_SPRITES: Record<string, string> = {
   marv_bartender: '/sprites/marv.png',
@@ -59,6 +61,7 @@ export function PlanningPanel({
   onDeleteSignature,
 }: Props) {
   const recipeUnlocked = state.ownedUpgradeIds.includes('cocktail_shaker');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const hiredArchetypeIds = new Set(state.hiredStaff.map((h) => h.archetypeId));
   const availableHires = catalog.staffArchetypes.filter((a) => !hiredArchetypeIds.has(a.id));
   const ownedUpgrades = catalog.upgrades.filter((u) => state.ownedUpgradeIds.includes(u.id));
@@ -81,6 +84,14 @@ export function PlanningPanel({
             <span className="value">{state.reputation}</span>
           </div>
           <MuteButton />
+          <button
+            type="button"
+            className="settings-btn"
+            aria-label="Settings"
+            onClick={() => setSettingsOpen(true)}
+          >
+            ⚙
+          </button>
         </div>
       </div>
 
@@ -240,8 +251,13 @@ export function PlanningPanel({
 
       <div className="actions">
         <button className="primary" onClick={onStartShift}>Open the doors</button>
-        <button className="ghost" onClick={onResetSave}>Reset save</button>
       </div>
+
+      <Settings
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onResetSave={onResetSave}
+      />
     </div>
   );
 }

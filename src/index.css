@@ -956,6 +956,134 @@ button.ghost {
   box-shadow: var(--drop-press);
 }
 .mute-btn[aria-pressed='true'] { color: var(--stain-cherry); border-color: var(--stain-cherry); }
+
+.settings-btn {
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--panel-2);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: var(--drop-press);
+}
+.settings-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Settings sheet — full-screen overlay with a card in the middle. */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 6, 4, 0.80);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.settings-card {
+  width: 100%;
+  max-width: 360px;
+  background: #e8d8b0;
+  color: #1a120a;
+  font-family: var(--font-note);
+  padding: 20px 22px;
+  box-shadow: 0 0 0 2px var(--hairline), inset 0 0 0 1px rgba(248, 216, 160, 0.3),
+              4px 4px 0 0 var(--hairline);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-close {
+  background: transparent;
+  border: 1px solid #4a3a26;
+  color: #1a120a;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: var(--font-pixel);
+}
+.settings-close:hover { color: var(--stain-blood); border-color: var(--stain-blood); }
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(26, 18, 10, 0.25);
+}
+.settings-row:last-of-type { border-bottom: none; }
+.settings-label {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: #4a3a26;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  min-width: 64px;
+}
+.settings-volume {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--tavern-pitch);
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  cursor: pointer;
+}
+.settings-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 16px;
+  background: var(--tavern-amber);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+}
+.settings-volume::-moz-range-thumb {
+  width: 12px;
+  height: 16px;
+  background: var(--tavern-amber);
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  cursor: pointer;
+}
+.settings-volume-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: #1a120a;
+  min-width: 24px;
+  text-align: right;
+}
+.settings-reset {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  background: var(--stain-blood);
+  color: var(--ink-bone);
+  border: 1px solid var(--stain-blood);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: var(--drop-1);
+}
+.settings-reset:active { transform: translate(1px, 1px); box-shadow: var(--drop-press); }
+
+.settings-credits {
+  margin-top: 8px;
+  font-family: var(--font-note);
+  font-size: 14px;
+  color: #1a120a;
+  line-height: 1.4;
+}
+.settings-credits p { margin: 0 0 6px; }
+.settings-flavor { font-style: italic; color: #4a3a26; }
 .phaser-wrap {
   position: relative;
   width: 100%;
@@ -1082,7 +1210,8 @@ button.ghost {
 
 .newspaper .masthead,
 .game-over-card .masthead,
-.career-card .masthead {
+.career-card .masthead,
+.settings-card .masthead {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
