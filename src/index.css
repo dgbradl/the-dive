@@ -319,6 +319,41 @@ html, body, #root {
 
 .empty-hint { font-family: var(--font-note); color: var(--text-dim); font-size: 14px; }
 
+/* Staff mood */
+.mood-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mood-label {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 0.10em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.mood-meter {
+  width: 96px;
+  height: 8px;
+  background: var(--tavern-pitch);
+  box-shadow: var(--etch-1);
+  position: relative;
+  flex-shrink: 0;
+}
+.mood-meter .mood-fill {
+  height: 100%;
+  transition: width 220ms steps(8, end);
+}
+.mood-meter.good .mood-fill    { background: var(--stain-mint); }
+.mood-meter.bad .mood-fill     { background: var(--stain-cherry); }
+.mood-meter.neutral .mood-fill { background: var(--tavern-amber); }
+.mood-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
 /* Tonight's special — pill selector */
 .special-pills {
   display: flex;

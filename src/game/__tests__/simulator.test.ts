@@ -323,6 +323,7 @@ describe('staff traits', () => {
       decisions: [],
       rentPaid: 0,
       stockUsed: {},
+      staffMoodDelta: {},
     };
     s.day = 5;
     const { state: next } = applyReport(s, report);
@@ -396,7 +397,7 @@ describe('staff traits', () => {
     const dummyReport: ShiftReport = {
       day: 1, seed: 1, cashDelta: 0, repDelta: 0,
       customersServed: 0, customersLost: 0, wagesPaid: 0,
-      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [], rentPaid: 0, stockUsed: {},
+      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [], rentPaid: 0, stockUsed: {}, staffMoodDelta: {},
     };
     const { state: next } = applyReport(f.state, dummyReport);
     // Overnight decay is 1.5 → 4.0 - 1.5 = 2.5, clamped to [0, 5].
@@ -661,6 +662,56 @@ describe('staff traits', () => {
     const r2 = runShift(f2.state, defaultShiftConfig, f2.catalog, 42);
     expect(r1.cashDelta).toBe(r2.cashDelta);
     expect(r1.repDelta).toBe(r2.repDelta);
+  });
+
+  it('staff mood: Quick at Bar gains mood across busy shifts', () => {
+    const f = fixture([{ traits: ['Quick'], station: Station.Bar }]);
+    f.state.hiredStaff[0].mood = 60; // start at baseline
+    let total = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 130000 + seed);
+      total += r.staffMoodDelta[f.state.hiredStaff[0].instanceId] ?? 0;
+    }
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it('staff mood: Lazy at Bar drains mood across busy shifts', () => {
+    const f = fixture([{ traits: ['Lazy'], station: Station.Bar }]);
+    f.state.hiredStaff[0].mood = 60;
+    let total = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 131000 + seed);
+      total += r.staffMoodDelta[f.state.hiredStaff[0].instanceId] ?? 0;
+    }
+    expect(total).toBeLessThan(0);
+  });
+
+  it('staff mood: applyReport persists mood drift across days', () => {
+    const f = fixture([{ traits: ['Quick'], station: Station.Bar }]);
+    f.state.hiredStaff[0].mood = 60;
+    const r = runShift(f.state, defaultShiftConfig, f.catalog, 132000);
+    const { state: next } = applyReport(f.state, r);
+    const beforeMood = f.state.hiredStaff[0].mood;
+    const afterMood = next.hiredStaff[0].mood;
+    expect(afterMood).not.toBe(beforeMood);
+    expect(afterMood).toBeGreaterThanOrEqual(0);
+    expect(afterMood).toBeLessThanOrEqual(100);
+  });
+
+  it('staff mood: a Klutz with low mood drops more trays than one with high mood', () => {
+    const grumpy = fixture([
+      { traits: [], station: Station.Bar },
+      { traits: ['Klutz'], station: Station.Floor, role: StaffRole.Server },
+    ]);
+    grumpy.state.hiredStaff[1].mood = 10;
+    const happy = fixture([
+      { traits: [], station: Station.Bar },
+      { traits: ['Klutz'], station: Station.Floor, role: StaffRole.Server },
+    ]);
+    happy.state.hiredStaff[1].mood = 95;
+    const grumpyAvg = avgOver(120, (s) => trayDrops(runShift(grumpy.state, defaultShiftConfig, grumpy.catalog, s)));
+    const happyAvg = avgOver(120, (s) => trayDrops(runShift(happy.state, defaultShiftConfig, happy.catalog, s)));
+    expect(grumpyAvg).toBeGreaterThan(happyAvg);
   });
 
   it('Charming on Door reduces avg crisis cash penalty', () => {

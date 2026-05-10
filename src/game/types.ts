@@ -286,4 +286,6 @@ export interface ShiftReport {
   rentPaid: number;
   /** Units consumed tonight by drink id; subtracted from state.drinkStock. */
   stockUsed: Record<string, number>;
+  /** Mood delta per staff `instanceId` to apply in `applyReport`. */
+  staffMoodDelta: Record<string, number>;
 }

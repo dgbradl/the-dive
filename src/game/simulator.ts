@@ -82,13 +82,45 @@ const TRAIT = {
   // Floor-only.
   klutzTrayChance: 0.08,       // per Klutz on floor, per serve: chance of a tray drop
   // Customer-facing (bar + floor).
-  charmingTipMult: 1.30,       // per Charming
-  surlyTipMult: 0.70,          // per Surly
+  charmingTipBonus: 0.30,      // per Charming: +30% tip when neutral mood
+  surlyTipPenalty: 0.30,       // per Surly: -30% tip when neutral mood
   chattyPatienceBonus: 1,      // per Chatty
   chattyPatienceCap: 3,        // total max bonus across all Chatty
   // Door-only.
   doorCharmDefuseChance: 0.6,  // per Charming on door: chance to fully defuse a Crisis
 };
+
+/** Mood drift magnitudes — applied in applyReport. */
+const MOOD = {
+  busyServeQuick: 0.4,    // +mood per serve for Quick at bar
+  busyServeLazy: -0.5,    // -mood per serve for Lazy at bar
+  walkoutAtStation: -1.5, // every staffer at the affected station gets yelled at
+  mishapByStaff: -0.5,    // per mishap a specific staffer caused
+  driftToward: 60,        // baseline mood
+  passiveDrift: 1,        // pull toward baseline if no events
+  perShiftClampMag: 12,   // |total drift| per shift
+  highMoodThreshold: 80,
+  lowMoodThreshold: 30,
+};
+
+/**
+ * Returns a multiplier for a trait's magnitude based on the staffer's mood.
+ *
+ * - Below 30 mood ("rough"):  beneficial traits dampened, harmful traits amplified.
+ * - Between 30 and 80 mood:    no change (neutral band).
+ * - Above 80 mood ("dialed"):  beneficial traits boosted, harmful traits dampened.
+ */
+function moodScale(mood: number, kind: 'bonus' | 'penalty'): number {
+  if (mood < MOOD.lowMoodThreshold) {
+    const t = (MOOD.lowMoodThreshold - mood) / MOOD.lowMoodThreshold; // 0..1
+    return kind === 'bonus' ? 1 - 0.5 * t : 1 + 0.5 * t;
+  }
+  if (mood > MOOD.highMoodThreshold) {
+    const t = (mood - MOOD.highMoodThreshold) / 20; // 0..1
+    return kind === 'bonus' ? 1 + 0.3 * t : 1 - 0.3 * t;
+  }
+  return 1;
+}
 
 interface WaitingCustomer {
   archetype: CustomerArchetype;
@@ -191,6 +223,15 @@ export function runShift(
     decisions: [],
     rentPaid: 0,
     stockUsed: {},
+    staffMoodDelta: {},
+  };
+
+  // Per-staff mood drift accumulator; pushed onto the report at end of shift.
+  const moodDelta = new Map<string, number>();
+  const moodTouched = new Set<string>();
+  const bumpMood = (instanceId: string, delta: number) => {
+    moodDelta.set(instanceId, (moodDelta.get(instanceId) ?? 0) + delta);
+    moodTouched.add(instanceId);
   };
 
   // Local copy of inventory mutated through the shift; report.stockUsed
@@ -363,10 +404,29 @@ export function runShift(
 
   // Customer-facing stations are where charm/surl/chat traits fire.
   const customerFacing: OnShift[] = [...stations.bar, ...stations.floor];
-  const charmingCount = withTrait(customerFacing, 'Charming').length;
-  const surlyCount = withTrait(customerFacing, 'Surly').length;
-  const chattyCount = withTrait(customerFacing, 'Chatty').length;
-  const patienceBonus = Math.min(chattyCount * TRAIT.chattyPatienceBonus, TRAIT.chattyPatienceCap);
+  const charmingFacing = withTrait(customerFacing, 'Charming');
+  const surlyFacing = withTrait(customerFacing, 'Surly');
+  const chattyFacing = withTrait(customerFacing, 'Chatty');
+
+  // Per-staff mood-aware patience bonus, capped across all Chatty.
+  const rawPatienceBonus = chattyFacing.reduce(
+    (sum, s) => sum + TRAIT.chattyPatienceBonus * moodScale(s.hired.mood, 'bonus'),
+    0,
+  );
+  const patienceBonus = Math.round(Math.min(rawPatienceBonus, TRAIT.chattyPatienceCap));
+
+  // Per-staff mood-aware tip multiplier — each Charming/Surly contributes
+  // multiplicatively, with magnitude scaled by their personal mood.
+  const moodAwareTipMult = (() => {
+    let mult = 1;
+    for (const s of charmingFacing) {
+      mult *= 1 + TRAIT.charmingTipBonus * moodScale(s.hired.mood, 'bonus');
+    }
+    for (const s of surlyFacing) {
+      mult *= 1 - TRAIT.surlyTipPenalty * moodScale(s.hired.mood, 'penalty');
+    }
+    return mult;
+  })();
 
   // Bar-only.
   const quickAtBar = withTrait(stations.bar, 'Quick');
@@ -467,8 +527,9 @@ export function runShift(
       if (rng.next() < speedBonus * 0.5) capacity += 1;
     }
     // Quick: per-tick chance of +1 capacity per Quick at bar.
-    for (let i = 0; i < quickAtBar.length; i++) {
-      if (rng.next() < TRAIT.quickCapacityChance) capacity += 1;
+    for (const q of quickAtBar) {
+      const chance = TRAIT.quickCapacityChance * moodScale(q.hired.mood, 'bonus');
+      if (rng.next() < chance) capacity += 1;
     }
     // Lazy: scheduled smoke break this tick.
     const lazyThisTick = lazyTicks.get(tick);
@@ -523,11 +584,9 @@ export function runShift(
         floorCount > 0
           ? Math.min(1.5, 1 + floorCharm / Math.max(1, floorCount))
           : 1;
-      // Trait modifiers stack multiplicatively: each Charming +10%, each Surly -30%.
-      const tipMult =
-        charmFactor *
-        Math.pow(TRAIT.charmingTipMult, charmingCount) *
-        Math.pow(TRAIT.surlyTipMult, surlyCount);
+      // Trait modifiers stack multiplicatively. Each Charming/Surly's
+      // magnitude is scaled by their personal mood (computed above).
+      const tipMult = charmFactor * moodAwareTipMult;
       const tip = Math.max(0, Math.round((baseTip + passiveTipBonus) * tipMult));
 
       const net = price - cost + tip + config.atmosphereCashPerCustomer;
@@ -573,7 +632,8 @@ export function runShift(
 
       // Klutz: per Klutz on floor, chance to drop a tray after this serve.
       for (const klutz of klutzAtFloor) {
-        if (rng.next() < TRAIT.klutzTrayChance) {
+        const chance = TRAIT.klutzTrayChance * moodScale(klutz.hired.mood, 'penalty');
+        if (rng.next() < chance) {
           const dropCost = -rng.intBetween(2, 6);
           heat = clampHeat(heat + HEAT.perMishap * 0.5);
           report.damages.push({ tick, item: 'spilled tray', cost: -dropCost });
@@ -692,6 +752,34 @@ export function runShift(
   }
 
   report.heatAtClose = heat;
+
+  // ---- Mood drift bookkeeping ----
+  // Walk the report once, accumulate per-staff drift.
+  const customerFacingIds = [...stations.bar, ...stations.floor].map((s) => s.hired.instanceId);
+  const quickBarIds = quickAtBar.map((s) => s.hired.instanceId);
+  const lazyBarIds = lazyAtBar.map((s) => s.hired.instanceId);
+  for (const e of report.entries) {
+    if (e.kind === 'Served') {
+      for (const id of quickBarIds) bumpMood(id, MOOD.busyServeQuick);
+      for (const id of lazyBarIds) bumpMood(id, MOOD.busyServeLazy);
+    } else if (e.kind === 'Walkout') {
+      for (const id of customerFacingIds) bumpMood(id, MOOD.walkoutAtStation);
+    } else if (e.kind === 'Mishap' && e.staffInstanceId) {
+      bumpMood(e.staffInstanceId, MOOD.mishapByStaff);
+    }
+  }
+  // Passive drift toward baseline for staff nothing touched tonight.
+  for (const h of state.hiredStaff) {
+    if (moodTouched.has(h.instanceId)) continue;
+    if (h.mood < MOOD.driftToward) moodDelta.set(h.instanceId, MOOD.passiveDrift);
+    else if (h.mood > MOOD.driftToward) moodDelta.set(h.instanceId, -MOOD.passiveDrift);
+  }
+  // Clamp magnitude of any single shift's drift, write to the report.
+  for (const [id, delta] of moodDelta) {
+    const clamped = Math.max(-MOOD.perShiftClampMag, Math.min(MOOD.perShiftClampMag, delta));
+    if (clamped !== 0) report.staffMoodDelta[id] = clamped;
+  }
+
   return report;
 }
 
@@ -732,16 +820,25 @@ export function applyReport(state: GameState, report: ShiftReport): { state: Gam
     updatedStock[id] = Math.max(0, (updatedStock[id] ?? 0) - used);
   }
 
+  // Mood drift per staffer (computed during runShift, stashed on report).
+  const updatedStaff = state.hiredStaff.map((h) => {
+    const delta = report.staffMoodDelta[h.instanceId] ?? 0;
+    if (delta === 0) return h;
+    return { ...h, mood: Math.max(0, Math.min(100, Math.round(h.mood + delta))) };
+  });
+
   const newState: GameState = {
     ...state,
     cash: state.cash + report.cashDelta - wages - rent,
     reputation: Math.max(0, Math.min(100, state.reputation + report.repDelta)),
+    hiredStaff: updatedStaff,
     regulars: updatedRegulars,
     heat: clampHeat(report.heatAtClose - HEAT.overnightDecay),
     drinkStock: updatedStock,
   };
   return { state: newState, report: annotated };
 }
+
 
 /**
  * Override the player's choice at a pending decision. Mutates the report

@@ -245,6 +245,7 @@ function HiredCard({ hired, archetype, station, onAssign, onFire }: HiredCardPro
           <button className="fire-btn" onClick={onFire} aria-label={`Fire ${hired.displayName}`}>×</button>
         </div>
         <div className="staff-role">{archetype?.role ?? '?'} · ${hired.wagePerDay}/day</div>
+        <MoodMeter mood={hired.mood} />
         {archetype && <TraitChips traits={archetype.traits} />}
         <div className="station-toggle" role="group" aria-label="Assign station">
           {STATIONS.map((s) => (
@@ -259,6 +260,21 @@ function HiredCard({ hired, archetype, station, onAssign, onFire }: HiredCardPro
         </div>
       </div>
     </li>
+  );
+}
+
+function MoodMeter({ mood }: { mood: number }) {
+  const pct = Math.max(0, Math.min(100, mood));
+  const tone = mood < 30 ? 'bad' : mood > 80 ? 'good' : 'neutral';
+  const label = mood < 30 ? 'rough' : mood > 80 ? 'dialed' : '';
+  return (
+    <div className="mood-row">
+      <span className="mood-label">Mood</span>
+      <div className={`mood-meter ${tone}`} aria-label={`Mood ${mood}`}>
+        <div className="mood-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="mood-value">{mood}{label && ` · ${label}`}</span>
+    </div>
   );
 }
 
