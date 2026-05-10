@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import Phaser from 'phaser';
-import { BarScene } from './PhaserBarScene';
+import type Phaser from 'phaser';
+import type { BarScene } from './PhaserBarScene';
 import type { DecisionOption, PendingDecision, ShiftEntry, ShiftPhase, ShiftReport } from '../game/types';
 import { defaultShiftConfig } from '../game/types';
 import { applyDecisionOverride } from '../game/simulator';
@@ -60,29 +60,38 @@ export function ShiftPanel({ report, onComplete }: Props) {
   const animatedCash = useCountUp(runningCash, 280);
   const animatedRep = useCountUp(runningRep, 400);
 
-  // Mount Phaser once
+  // Mount Phaser once. Both Phaser (~1.4 MB) and the bar scene are
+  // dynamically imported so the planning panel doesn't pay their cost.
   useEffect(() => {
-    if (!containerRef.current) return;
-    const scene = new BarScene();
-    sceneRef.current = scene;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const game = new Phaser.Game({
-      type: Phaser.AUTO,
-      parent: containerRef.current,
-      width: Math.max(280, Math.floor(rect.width)),
-      height: Math.max(220, Math.floor(rect.height)),
-      backgroundColor: '#1a0f1f',
-      scale: {
-        mode: Phaser.Scale.RESIZE,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
-      },
-      scene,
-    });
-    gameRef.current = game;
-
+    let cancelled = false;
+    let game: Phaser.Game | null = null;
+    void (async () => {
+      const [phaserModule, sceneModule] = await Promise.all([
+        import('phaser'),
+        import('./PhaserBarScene'),
+      ]);
+      if (cancelled || !containerRef.current) return;
+      const PhaserNs = phaserModule.default;
+      const scene = new sceneModule.BarScene();
+      sceneRef.current = scene;
+      const rect = containerRef.current.getBoundingClientRect();
+      game = new PhaserNs.Game({
+        type: PhaserNs.AUTO,
+        parent: containerRef.current,
+        width: Math.max(280, Math.floor(rect.width)),
+        height: Math.max(220, Math.floor(rect.height)),
+        backgroundColor: '#1a0f1f',
+        scale: {
+          mode: PhaserNs.Scale.RESIZE,
+          autoCenter: PhaserNs.Scale.CENTER_BOTH,
+        },
+        scene,
+      });
+      gameRef.current = game;
+    })();
     return () => {
-      game.destroy(true);
+      cancelled = true;
+      game?.destroy(true);
       gameRef.current = null;
       sceneRef.current = null;
     };

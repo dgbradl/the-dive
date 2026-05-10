@@ -2,6 +2,7 @@ import type { Drink, GameState, HiredStaff, Regular, StaffArchetype, StaffTrait,
 import { Station } from '../game/types';
 import { catalog } from '../game/content';
 import { upcomingMilestone } from '../game/milestones';
+import { getScenario } from '../game/scenarios';
 import { MuteButton } from './MuteButton';
 import { RecipeBook } from './RecipeBook';
 
@@ -83,6 +84,7 @@ export function PlanningPanel({
         </div>
       </div>
 
+      <ScenarioStrip state={state} />
       <MilestoneBanner state={state} />
 
       <div className="section">
@@ -378,6 +380,16 @@ function StockRow({
         Order +{drink.caseSize}
       </button>
     </li>
+  );
+}
+
+function ScenarioStrip({ state }: { state: GameState }) {
+  const scenario = getScenario(state.scenarioId);
+  return (
+    <div className="scenario-strip">
+      <span className="scenario-strip-label">Scenario</span>
+      <span className="scenario-strip-name">{scenario.displayName}</span>
+    </div>
   );
 }
 
