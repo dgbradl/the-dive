@@ -178,6 +178,15 @@ week-long arc rather than a 3-min run.
   missing `icon-192.png` / `icon-512.png`; replaced with the
   existing `favicon.svg` (sizes: 'any', maskable). Renamed app:
   BarGame → The Dive; theme color updated to tavern-soot.
+- ✅ **Slice 21 — Wall dartboard (C4 finish).** Three concentric
+  circles + three cherry dart marks, mounted on the back wall right
+  of the door. Pool table skipped — floor already crowded.
+- ✅ **Slice 22 — Daily seed challenge (D4).** Fourth scenario
+  with a UTC-date-derived djb2 RNG seed; new dailyShareText helper
+  + Copy-result button on GameOverPanel.
+- ✅ **Slice 23 — UI smoke tests (E6).** RTL + JSDOM coverage of
+  the React shell — planning load, shift transition, skip → results
+  → lock up, settings open/close. Phaser mocked to no-op stubs.
 
 ## Suggested first 5 slices
 
@@ -248,10 +257,11 @@ serif "DIVE TIMES" masthead with a four-column totals strip.
 animated totals on the results panel; running cash/rep readout in the
 shift header; floating `+$N` toasts over the Phaser canvas, larger with
 a glow for tips ≥ $25.
-**C4.** ⏳ Phaser scene polish. Mostly done across Slices 8e / 8f / 8k /
-13: back-wall + floor bands, neon "Last Call" sign, smoke haze, two
+**C4.** ⏳ Phaser scene polish. Done across Slices 8e / 8f / 8k / 13 /
+21: back-wall + floor bands, neon "Last Call" sign, smoke haze, two
 tables with seated customers, named regulars on stools, jukebox that
-shakes on "eats a quarter". **Still open:** dartboard, pool table.
+shakes on "eats a quarter", wall dartboard. **Still open:** pool
+table (floor's already busy — flagged as low priority).
 **C5.** ✅ Customer thought bubbles + patience bars. Drink emoji + a
 thinning bar above each waiting customer's head. Slice 8g.
 **C6.** ✅ Variable tick pacing. Per-entry ms in `tickMsFor`; Crisis
@@ -270,8 +280,8 @@ biggestTip / busiestNight / lifetimeDays. Slice 12.
 Pop-Up Bar. Picker on game-over screen. Slice 15.
 **D3.** ✅ Achievement-style milestones. Seven authored, unlocked-once
 list persisted on `careerStats.unlockedAchievements`. Slice 18.
-**D4.** Daily seed challenge. Same seed for everyone today; share your
-final cash. Stretch — needs a server or just a "share text" copy button.
+**D4.** ✅ Daily seed challenge. UTC-date djb2 seed; share-text Copy
+button on GameOverPanel. Slice 22.
 
 ### E. Tech & infra
 **E2.** ✅ Real PWA icons. Manifest now references the existing
@@ -283,21 +293,23 @@ migrators that synthesize new fields on legacy saves. Slices 7 + 11a.
 header: sound toggle, volume slider, reset save, credits. Slice 19.
 **E5.** ✅ Bundle splitting. Phaser dynamic-imports on first ShiftPanel
 mount. Main bundle 1.65 MB → 204 KB. Slice 16.
-**E6.** Smoke tests for UI. Render `PlanningPanel`, click "Open the
-doors", assert phase transitions. JSDOM + React Testing Library.
+**E6.** ✅ Smoke tests for UI. RTL + JSDOM coverage of the React
+shell with Phaser mocked. Slice 23.
 
 ## What's still open
 
-**A + B (depth):** all done.
-**Polish (C):** C4 (dartboard / pool table remain), C7 walk-cycle
-sprites (needs art).
-**Meta (D):** D4 daily seed challenge.
-**Tech (E):** E6 UI smoke tests.
+The backlog is essentially complete. Two known gaps remain:
 
-## Critical files for the open items
+- **C4 — pool table** on the floor. Skipped during 21; the floor
+  is already busy with two tables, the jukebox, the queue line,
+  and seated customers. Future re-layout could fit it.
+- **C7 — walk-cycle sprites.** Needs new pixel-art (4-frame walk
+  cycles per archetype + named staff). Asset blocker; no code is
+  blocking this from landing the moment the art exists.
 
-- `src/ui/PhaserBarScene.ts` — C4, C7
-- new `*.test.tsx` (RTL) — E6
+Anything beyond that — additional content (more drinks, customer
+archetypes, events), tuning passes, or a tutorial — is open
+exploration rather than punch-list work.
 
 ## Patterns to lean on
 - `runShift(state, config, catalog, seed)` in `src/game/simulator.ts` — pure
@@ -331,13 +343,19 @@ sprites (needs art).
 
 ## Highest-leverage next moves
 
-1. **C4 (remaining) — Phaser dartboard + pool table.** Two more
-   floor objects to fill out the back of the bar. Same procedural-
-   geometry pattern as the jukebox.
-2. **D4 Daily seed challenge.** Same seed for everyone today; share
-   your final cash via a "share text" copy button on the receipt.
-   Stretch — the seed mechanism is already deterministic, all this
-   needs is a date-derived seed and a copy-to-clipboard button.
-3. **E6 UI smoke tests.** Render PlanningPanel, click "Open the
-   doors", assert phase transitions via JSDOM + React Testing
-   Library. Catches regressions in the React shell.
+The A–E backlog is closed. From here the useful directions are
+exploratory:
+
+1. **Content sprint.** Author more drinks, customer archetypes,
+   regulars, and events in `src/game/content.ts`. Pure additions;
+   blend with one new mechanic so it doesn't go stale.
+2. **Tuning pass.** Play 3–5 full Day-7 lease runs across the four
+   scenarios, adjust HEAT / decision triggers / rep magnitudes so
+   each scenario feels distinct.
+3. **Sound design upgrade.** Add procedural background ambience
+   (low murmur loop) + per-decision SFX. Audio module is already
+   abstracted, so swapping in Howler later is small.
+4. **Tutorial / onboarding.** A two-screen first-run intro
+   (morning planning + shift cinematic) would smooth the learning
+   curve. The game is small enough to learn by playing today, but
+   the milestone banner copy is dense.
