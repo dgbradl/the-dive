@@ -83,6 +83,50 @@ week-long arc rather than a 3-min run.
   entries' heatAfter snapshots. Slice ships with one decision: heat
   ≥ 3.5 → "Rowdy at the bar — POUR / CUT OFF / 86 HIM (bouncer
   required)". 4 new tests.
+- ✅ **Slice 8c.1 — Decisions surface in default play.** Lowered the
+  heat threshold (3.5 → 2.0), added a customer-mishap trigger, capped
+  decisions at 2 per shift with a 5-tick cooldown so the action bar
+  fires in roughly half of normal staffed shifts.
+- ✅ **Slice 8d — Health-inspector decision; bar-fight Crisis.**
+  `RandomEvent.decisionOptions` lets any event become a decision.
+  Health Inspector now plays as POUR (Take Fine, default) / RING UP
+  (Bribe, requires cash $50) / DOOR (Charm, requires Charming on
+  Floor) — finally lights up RING UP and DOOR. Added `bar_fight`
+  Crisis event so the bouncer auto-defuse trait still has work for
+  non-decision events. 2 new tests.
+- ✅ **Slice 8e — Scene layout + ambient extras.** Recomposed the
+  Phaser scene into three vertical bands (back wall / bar / floor),
+  added two-row tiled bottle shelf, two ellipse tabletops, and step-
+  bobbing seated regulars.
+- ✅ **Slice 8f — Customers drink with friends.** Replaced the
+  ambient wanderers with a real flow: arrive → wait → get served
+  → walk to a free table seat (4 seats across two tables) → linger
+  with a slow Steps(1) bob. Periodic VT323 chat bubbles ("Cheers!",
+  "Ha!", "No way…") pop above random seated customers.
+- ✅ **Slice 8g — Patience bars (C5).** Each waiting customer wears
+  a stamped panel above their head: drink-preference emoji on the
+  left, a thinning bar that drains stain-mint → tavern-amber →
+  stain-cherry. Locked to the sprite via Phaser `update()`.
+- ✅ **Slice 8h — DOOR-refusal decision.** Heat ≥ 3.5 + new arrival
+  swaps the bar-rowdy framing for a door-gating one: POUR (Let In,
+  default) / DOOR (Refuse, −0.8 heat). 1 new test.
+- ✅ **Slice 8i — Weekly milestones (B9).** Rent of $40/day deducted
+  every shift; Day 7 needs $300 cash on hand or the lease is lost
+  (game over); Day 14 needs reputation 30 or rent climbs $20/day.
+  `MilestoneBanner` on the planning panel; `GameOverPanel` ("Doors
+  Closed for Good") matches the receipt aesthetic. 6 new tests.
+- ✅ **Slice 8j — Inventory + stockouts (B5).** Drinks have
+  `caseSize` and `casePrice`; player buys cases each morning. Per-
+  pour cost is now $0 (paid in case purchase). Stocking out on a
+  customer's preferred drink → walkout with rep + heat penalty. 2
+  new tests.
+- ✅ **Slice 8k — Finish the design kit.** Wired in the previously-
+  unused vendored assets: `wordmark-neon.svg` is a flickering "Last
+  Call" sign on the back wall; `smoke-haze.png` overlays the canvas
+  via `.grit-haze`; `grain.png` gives the receipt + game-over card
+  paper texture; `water-stain.png` is a faint coffee-ring corner
+  accent; `etched-tile.png` adds worn-slate texture to the
+  chalkboard.
 
 ## Suggested first 5 slices
 
@@ -124,16 +168,14 @@ time-of-night text deferred to Slice 5.
 **B4.** ✅ Reputation tiers gate customers. `minReputation` added to
 `CustomerArchetype`; Date-Night Couple (15+), Yelp Reviewer (35+),
 Wedding Party (60+) authored.
-**B5.** Inventory / restocking. Each drink has `stockLeft` set from a
-morning order; running out mid-shift = walkouts. Player allocates morning
-cash between staff/upgrades/stock. Real triage. Touches `types.ts`,
-`simulator.ts`, `PlanningPanel.tsx`.
-**B6.** Crisis decision moments. Some shift events pause for player input
-("Health inspector wants a word — bribe $50 / charm if you have Charm 1.0+
-on floor / take the $25 fine"). Modal in `ShiftPanel`. Branching outcomes
-injected back into the report. The big jump from "watch a number tick" to
-"I'm playing a game". Touches `simulator.ts` (yields a decision),
-`ShiftPanel.tsx`, new `DecisionModal.tsx`.
+**B5.** ✅ Inventory / restocking. Drinks have `caseSize` + `casePrice`;
+player orders cases each morning, per-pour cost is paid up front,
+stockouts → walkouts. Slice 8j.
+**B6.** ✅ Crisis decision moments. `runShift` produces a `decisions[]`
+side array; UI pauses on `Decision` entries and lights up the matching
+action-bar slots. Three decisions ship: heat-rowdy, customer-mishap,
+door-refusal, plus the health-inspector event-decision. Slices 8c / 8d /
+8h.
 **B7.** ✅ Regulars with loyalty. Implemented per-regular (not
 per-archetype): named instances with their own loyalty score, persisted
 across days. Spawn gated on loyalty ≥ 0; +1 on serve, -3 on walkout.
@@ -142,10 +184,9 @@ Roster visible in Planning panel with last-seen-day + loyalty meter.
 Shaker upgrade, unlock a "Recipe" screen: combine 2 base drinks →
 signature with custom name, +rep on serve. Player-named signatures show up
 in shift log. Touches `types.ts`, `content.ts`, new `RecipeBook.tsx`.
-**B9.** Weekly milestone goals. Day 7: "make $X or you lose the lease".
-Day 14: "rep 30 or the landlord raises the rent". Hard pressure that
-forces real choices in mid-week. Game-over screen with restart. Touches
-`types.ts`, `App.tsx`, new `MilestoneBanner.tsx`.
+**B9.** ✅ Weekly milestone goals. Rent $40/day; Day 7 lease check ($300
+cash) → game over on fail; Day 14 rep check (30) → +$20/day rent on
+fail. `MilestoneBanner` + `GameOverPanel`. Slice 8i.
 
 ### C. Polish & juice — the feel axis
 **C1.** ✅ Sound. Built procedurally via Web Audio (no Howler dep, no
@@ -160,20 +201,18 @@ serif "DIVE TIMES" masthead with a four-column totals strip.
 animated totals on the results panel; running cash/rep readout in the
 shift header; floating `+$N` toasts over the Phaser canvas, larger with
 a glow for tips ≥ $25.
-**C4.** Phaser scene polish. Parallax dive interior (back wall, jukebox,
-neon sign, pool table, dartboard); customers walk to *the bar counter*
-instead of a queue line; jukebox light pulses; jukebox sprite shakes when
-"eats a quarter" event fires. Touches `PhaserBarScene.ts`.
-**C5.** Customer thought bubbles + patience bars. Each waiting customer
-shows their preferred drink emoji and a thinning patience bar above their
-head. Visible tension. Touches `PhaserBarScene.ts`.
+**C4.** ⏳ Phaser scene polish. Most done in Slices 8e/8f/8k (back-wall
++ floor bands, neon "Last Call" sign, smoke haze, two tables with seated
+customers, named regulars on stools). **Still open:** jukebox sprite
+that shakes on "eats a quarter", dartboard, pool table.
+**C5.** ✅ Customer thought bubbles + patience bars. Drink emoji + a
+thinning bar above each waiting customer's head. Slice 8g.
 **C6.** Variable tick pacing. Slow ticks during events (let the player
 read), faster ticks during quiet stretches, camera punch on a Crisis.
 Touches `ShiftPanel.tsx` (timing), `PhaserBarScene.ts` (camera).
-**C7.** Pixel-art sprite swap. Establish 16x16 sprite pipeline; replace
-emoji with 4-frame walk cycles for the 3 (later 6) customer archetypes
-and named staff. Asset gen via free packs first (Kenney) — author later.
-Touches `public/sprites/`, `PhaserBarScene.ts`.
+**C7.** ⏳ Pixel-art sprite swap. Static portraits ship in Slice 6 (the
+Sepia Tavern asset drop). **Still open:** 4-frame walk cycles for
+customer/staff sprites — needs new art that we don't have yet.
 **C8.** Animated transitions. Planning → Shift = camera dolly into the
 bar; Shift → Results = lights-up cut. Sells the world. Touches `App.tsx`,
 `PhaserBarScene.ts`.
@@ -194,23 +233,37 @@ final cash. Stretch — needs a server or just a "share text" copy button.
 Public URL for sharing without local install.
 **E2.** Real PWA icons. 192 + 512 PNGs (currently the manifest references
 files that don't exist).
-**E3.** Save migrations. Bump `STORAGE_KEY` on breaking changes; write a
-migrator from v1 → v2 so existing saves don't wipe.
+**E3.** ✅ Save migrations. `STORAGE_KEY` v1 → v2 with a forward
+migrator that synthesizes new fields on legacy saves. Slice 7.
 **E4.** Settings panel. Mute, music volume, reset save, credits.
 **E5.** Bundle splitting. Phaser is 1.4 MB. Lazy-import on first navigation
 to ShiftPanel so the planning screen loads instantly.
 **E6.** Smoke tests for UI. Render `PlanningPanel`, click "Open the
 doors", assert phase transitions. JSDOM + React Testing Library.
 
-## Critical files to be touched (most-changed first)
-- `src/ui/PlanningPanel.tsx` — A5, B2, B5, B7
-- `src/game/simulator.ts` — A5, B2, B3, B4, B5, B6, B7
-- `src/game/types.ts` — B4, B5, B7, B8, B9, E3
-- `src/game/content.ts` — B4, B7, B8 (mostly content additions)
-- `src/ui/PhaserBarScene.ts` — B3, C4, C5, C6, C7, C8
-- `src/ui/ShiftPanel.tsx` — B6, C1, C3, C6
-- `src/ui/ResultsPanel.tsx` — C1, C2, C3
-- `src/App.tsx` — B6, B9, D2, E5
+## What's still open
+
+**Depth (B):** A5 nightly special, B2 staff mood, B8 signature drinks.
+**Polish (C):** C4 (jukebox/dartboard remaining), C6 variable tick
+pacing, C7 walk-cycle sprites (needs art), C8 transitions.
+**Meta (D):** D1 career stats on bankruptcy, D2 starting scenarios,
+D3 achievements, D4 daily seed challenge.
+**Tech (E):** E1 GitHub Pages auto-deploy, E2 PWA icons, E4 settings
+panel, E5 Phaser bundle splitting, E6 UI smoke tests.
+
+## Critical files for the open items
+
+- `src/ui/PlanningPanel.tsx` — A5, B2, B8
+- `src/game/simulator.ts` — A5, B2, B8
+- `src/game/types.ts` — B2, B8, D2
+- `src/game/content.ts` — A5, B8 (content additions)
+- `src/ui/PhaserBarScene.ts` — C4, C6, C7, C8
+- `src/ui/ShiftPanel.tsx` — C6
+- `src/ui/GameOverPanel.tsx` — D1
+- `src/App.tsx` — D2, E5
+- `vite.config.ts` — E2, E5
+- new `.github/workflows/` — E1
+- new `Settings.tsx` — E4
 
 ## Patterns to lean on
 - `runShift(state, config, catalog, seed)` in `src/game/simulator.ts` — pure
@@ -242,26 +295,14 @@ doors", assert phase transitions. JSDOM + React Testing Library.
 - 30-customer / 50-event content explosions — content per slice is fine, but
   a content sprint without new mechanics gets old fast.
 
-## Slice 4 starting notes (for the next session)
+## Highest-leverage next moves
 
-The next session can dive into Slice 4 by:
-1. Adding a `phase` concept to the simulator: derive Early/Prime/Last Call
-   from `tick / tickCount`. Possibly emit `Note` entries on phase boundaries
-   for the Phaser scene to react to.
-2. Per-phase `spawnWeight` multiplier on customer archetypes — could be
-   inline (case statement) or new field on `CustomerArchetype`.
-3. Adding `minReputation` to `CustomerArchetype` (mirror the field that
-   already exists on `RandomEvent`).
-4. Authoring three new customer archetypes in `content.ts`:
-   - **Date-Night Couple** (rep 15+, tipMultiplier ~0.30, patience high,
-     mishap low — consistent good earners)
-   - **Yelp Reviewer** (rep 35+, repInfluence very high in either direction,
-     mishap chance amplifies the negative impact)
-   - **Wedding Party** (rep 60+, spawn weight high once it hits, may
-     overwhelm capacity — last-night-of-the-week pressure)
-5. New tests: phase-aware spawn distribution; rep-tier gating; new
-   archetypes don't spawn below their `minReputation`.
-
-Be careful: tip-multiplier traits can round small tips to zero (Charming was
-+10% before being bumped to +30% for this reason). New archetypes should
-have prices/multipliers that produce visible tips at default prices.
+1. **E1 GitHub Pages auto-deploy.** Flips the project from "runs
+   locally" to "shareable link." Small workflow file; big psychological
+   unlock for sharing the build.
+2. **D1 Career stats on bankruptcy.** The `GameOverPanel` is begging
+   for it; stash a `careerStats` slice that tracks best night, biggest
+   tip, longest streak across runs. Turns each run into a record-chase.
+3. **B2 Staff mood.** Last fully-dead field on `HiredStaff` (`mood`).
+   Mood drifts each shift; <30 amplifies trait penalties, >80 amplifies
+   bonuses. Closes the staff depth loop.
