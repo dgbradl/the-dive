@@ -12,14 +12,26 @@ export interface Scenario {
   build: () => GameState;
 }
 
+/** Today's UTC date in YYYY-MM-DD form, used by the seed + share-text. */
+export function todaysDailyKey(now: Date = new Date()): string {
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** Deterministic per-day seed — every player gets the same one today. */
+export function todaysDailySeed(now: Date = new Date()): number {
+  const key = todaysDailyKey(now);
+  let h = 5381;
+  for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
+  return h | 0 || 1;
+}
+
 function bartenderState(overrides: Partial<GameState>): GameState {
-  const seed = (Math.random() * 0x7fffffff) | 0 || 1337;
   const marvId = crypto.randomUUID();
   const base: GameState = {
     day: 1,
     cash: 200,
     reputation: 5,
-    rngSeed: seed,
+    rngSeed: (Math.random() * 0x7fffffff) | 0 || 1337,
     hiredStaff: [
       {
         instanceId: marvId,
@@ -75,6 +87,16 @@ export const SCENARIOS: Scenario[] = [
       rentPerDay: 0,
       regulars: [],
       drinkStock: { pbr: 24, whiskey_sour: 16, house_special: 12 },
+    }),
+  },
+  {
+    id: 'daily',
+    displayName: 'Daily Challenge',
+    tagline: 'Today’s shared seed. Same rolls for everyone — bring your A-game.',
+    description: 'Standard lease run, but every player worldwide gets the same RNG today. Compare your final cash.',
+    build: () => bartenderState({
+      scenarioId: 'daily',
+      rngSeed: todaysDailySeed(),
     }),
   },
 ];

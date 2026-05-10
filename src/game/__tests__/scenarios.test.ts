@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_SCENARIO_ID, SCENARIOS, getScenario } from '../scenarios';
 
 describe('scenarios', () => {
-  it('exposes the three authored scenarios', () => {
+  it('exposes the four authored scenarios', () => {
     const ids = SCENARIOS.map((s) => s.id).sort();
-    expect(ids).toEqual(['inherited', 'popup', 'wreck']);
+    expect(ids).toEqual(['daily', 'inherited', 'popup', 'wreck']);
   });
 
   it('inherited dive is the default', () => {
