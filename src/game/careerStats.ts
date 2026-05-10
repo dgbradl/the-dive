@@ -16,6 +16,8 @@ export interface CareerStats {
   biggestTip: number;
   /** Most customers served in a single night. */
   busiestNight: number;
+  /** Achievement ids the player has unlocked. */
+  unlockedAchievements: string[];
 }
 
 export const defaultCareerStats: CareerStats = {
@@ -25,6 +27,7 @@ export const defaultCareerStats: CareerStats = {
   bestRunCash: 0,
   biggestTip: 0,
   busiestNight: 0,
+  unlockedAchievements: [],
 };
 
 export function loadCareerStats(): CareerStats {
@@ -32,7 +35,12 @@ export function loadCareerStats(): CareerStats {
     const raw = localStorage.getItem(CAREER_STORAGE_KEY);
     if (!raw) return { ...defaultCareerStats };
     const parsed = JSON.parse(raw) as Partial<CareerStats>;
-    return { ...defaultCareerStats, ...parsed };
+    return {
+      ...defaultCareerStats,
+      ...parsed,
+      // Defensive: legacy stats had no unlockedAchievements.
+      unlockedAchievements: Array.isArray(parsed.unlockedAchievements) ? parsed.unlockedAchievements : [],
+    };
   } catch {
     return { ...defaultCareerStats };
   }

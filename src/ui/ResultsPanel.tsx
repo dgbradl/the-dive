@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { findAchievement } from '../game/achievements';
 import type { GameCatalog, GameState, ShiftReport } from '../game/types';
 import { useCountUp } from './animation';
 import { playSfx } from './audio';
@@ -9,9 +10,10 @@ interface Props {
   state: GameState;
   catalog: GameCatalog;
   onNextDay: () => void;
+  newlyUnlockedIds?: string[];
 }
 
-export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
+export function ResultsPanel({ report, state, catalog, onNextDay, newlyUnlockedIds = [] }: Props) {
   const rent = report.rentPaid ?? 0;
   const net = report.cashDelta - report.wagesPaid - rent;
   const headline = pickHeadline(net, report.customersServed, report.customersLost);
@@ -44,6 +46,23 @@ export function ResultsPanel({ report, state, catalog, onNextDay }: Props) {
           <CountTotal label="Walkouts" target={report.customersLost} good={report.customersLost === 0} />
         </dl>
       </article>
+
+      {newlyUnlockedIds.length > 0 && (
+        <ul className="achievement-banner">
+          {newlyUnlockedIds.map((id) => {
+            const a = findAchievement(id);
+            if (!a) return null;
+            return (
+              <li key={id} className="achievement-unlock">
+                <span className="achievement-tag">Unlocked</span>
+                <span className="achievement-name">{a.displayName}</span>
+                <span className="achievement-desc">{a.description}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       <button className="primary" onClick={onNextDay}>Lock up</button>
     </div>
   );

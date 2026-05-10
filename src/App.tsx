@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { catalog } from './game/content';
+import { newlyUnlocked } from './game/achievements';
 import {
   loadCareerStats,
   recordRunEnd,
@@ -32,6 +33,7 @@ export function App() {
   const [phase, setPhase] = useState<Phase>('planning');
   const [lastReport, setLastReport] = useState<ShiftReport | null>(null);
   const [career, setCareer] = useState<CareerStats>(() => loadCareerStats());
+  const [unlockedThisShift, setUnlockedThisShift] = useState<string[]>([]);
   const [transition, setTransition] = useState<TransitionKind | null>(null);
   const prevPhaseRef = useRef<Phase>('planning');
 
@@ -62,8 +64,24 @@ export function App() {
     setLastReport(report);
     setState(postState);
     setCareer((c) => recordShift(c, report));
+    setUnlockedThisShift([]); // reset for this shift; the effect below fills it
     setPhase('shift');
   }, [state]);
+
+  // Evaluate achievement unlocks whenever the report or the day changes.
+  // This covers both shift-driven (Crowded House, Big Tipper, Spotless…)
+  // and day-state achievements (First Night, Lease Survivor).
+  useEffect(() => {
+    if (!lastReport) return;
+    const unlocks = newlyUnlocked(
+      { report: lastReport, state, career },
+      career.unlockedAchievements,
+    );
+    if (unlocks.length === 0) return;
+    setCareer((c) => ({ ...c, unlockedAchievements: [...c.unlockedAchievements, ...unlocks] }));
+    setUnlockedThisShift((prev) => Array.from(new Set([...prev, ...unlocks])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.day, lastReport]);
 
   const onShiftComplete = useCallback(() => setPhase('results'), []);
 
@@ -241,7 +259,13 @@ export function App() {
         <ShiftPanel report={lastReport} onComplete={onShiftComplete} />
       )}
       {phase === 'results' && lastReport && (
-        <ResultsPanel report={lastReport} state={state} catalog={catalog} onNextDay={advanceDay} />
+        <ResultsPanel
+          report={lastReport}
+          state={state}
+          catalog={catalog}
+          onNextDay={advanceDay}
+          newlyUnlockedIds={unlockedThisShift}
+        />
       )}
       {phase === 'gameOver' && (
         <GameOverPanel state={state} career={career} onRestart={resetSave} />
