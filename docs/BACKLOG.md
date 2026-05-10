@@ -127,6 +127,23 @@ week-long arc rather than a 3-min run.
   paper texture; `water-stain.png` is a faint coffee-ring corner
   accent; `etched-tile.png` adds worn-slate texture to the
   chalkboard.
+- ✅ **Slice 9 — Nightly special (A5).** `state.nightlySpecialDrinkId`
+  is live: +20% pick weight when the customer prefers it, +1 rep on
+  serve. New "Tonight's special" pill row in PlanningPanel.
+- ✅ **Slice 10 — Staff mood (B2).** `HiredStaff.mood` drifts each
+  shift (Quick gains busy, Lazy drains, walkouts dock customer-facing
+  staff, mishaps dock the named culprit). Below 30 amplifies harmful
+  traits + dampens beneficial ones; above 80 reverses. Per-staff
+  trait math (Charming/Surly tip mult, Quick capacity, Klutz drop
+  chance, Chatty patience). Mood meter on staff cards.
+- ✅ **Slice 11a — Recipe book (B8).** New Cocktail Shaker upgrade
+  ($250) gates a recipe screen. Players author named `Signature`
+  drinks from two base drinks; persisted via save migration v2 → v3.
+- ✅ **Slice 11b — Signatures get poured (B8).** Customers whose
+  preferred list overlaps a signature's bases sometimes order it.
+  Each pour consumes one unit of EACH base; stockout on either →
+  walkout naming the missing ingredient. +2 rep + 20% tip multiplier
+  on signature serves. Newspaper calls them out by name.
 
 ## Suggested first 5 slices
 
@@ -150,17 +167,14 @@ polish without depth runs out of replays fast.
 **A2.** ✅ Station assignment UI.
 **A3.** ✅ Drink price UI.
 **A4.** ✅ Upgrade shop.
-**A5.** Nightly special UI. `state.nightlySpecialDrinkId` field exists; sim
-ignores it. Add: special drink gets +20% spawn weight on customers who like
-it, +1 rep per serve. Touches `PlanningPanel.tsx`, `simulator.ts`.
+**A5.** ✅ Nightly special. `state.nightlySpecialDrinkId` lights up:
++20% pick weight + +1 rep per serve. Slice 9.
 
 ### B. Depth — interlocking systems (the replayability axis)
 **B1.** ✅ Staff traits actually fire in sim.
-**B2.** Staff mood matters. `HiredStaff.mood` field exists, currently dead.
-Mood drifts each shift based on outcomes (busy = +mood for Quick, -mood for
-Lazy; getting yelled at = -mood). Below 30 = trait penalties amplify; above
-80 = bonuses. Show mood meter on staff card. Touches `simulator.ts`,
-`PlanningPanel.tsx`.
+**B2.** ✅ Staff mood matters. `HiredStaff.mood` drifts per shift; per-
+staff trait magnitudes scale via `moodScale(mood, kind)`. UI mood meter
+on each staff card. Slice 10.
 **B3.** ✅ Shift phases. `phaseForTick` derives Early/Prime/LastCall;
 `phaseSpawnMultiplier` per archetype; phase-change `Note` entries are
 tagged with `phase` for the Phaser scene to consume. Phaser tint /
@@ -180,10 +194,9 @@ door-refusal, plus the health-inspector event-decision. Slices 8c / 8d /
 per-archetype): named instances with their own loyalty score, persisted
 across days. Spawn gated on loyalty ≥ 0; +1 on serve, -3 on walkout.
 Roster visible in Planning panel with last-seen-day + loyalty meter.
-**B8.** Drink crafting / signature drinks. Once you own the Cocktail
-Shaker upgrade, unlock a "Recipe" screen: combine 2 base drinks →
-signature with custom name, +rep on serve. Player-named signatures show up
-in shift log. Touches `types.ts`, `content.ts`, new `RecipeBook.tsx`.
+**B8.** ✅ Drink crafting / signature drinks. Cocktail Shaker upgrade
+gates a recipe screen; signatures consume one unit of each base on serve;
++2 rep + 20% tip multiplier; named in receipt. Slices 11a + 11b.
 **B9.** ✅ Weekly milestone goals. Rent $40/day; Day 7 lease check ($300
 cash) → game over on fail; Day 14 rep check (30) → +$20/day rent on
 fail. `MilestoneBanner` + `GameOverPanel`. Slice 8i.
@@ -243,7 +256,7 @@ doors", assert phase transitions. JSDOM + React Testing Library.
 
 ## What's still open
 
-**Depth (B):** A5 nightly special, B2 staff mood, B8 signature drinks.
+**A + B (depth):** all done.
 **Polish (C):** C4 (jukebox/dartboard remaining), C6 variable tick
 pacing, C7 walk-cycle sprites (needs art), C8 transitions.
 **Meta (D):** D1 career stats on bankruptcy, D2 starting scenarios,
@@ -253,10 +266,6 @@ panel, E5 Phaser bundle splitting, E6 UI smoke tests.
 
 ## Critical files for the open items
 
-- `src/ui/PlanningPanel.tsx` — A5, B2, B8
-- `src/game/simulator.ts` — A5, B2, B8
-- `src/game/types.ts` — B2, B8, D2
-- `src/game/content.ts` — A5, B8 (content additions)
 - `src/ui/PhaserBarScene.ts` — C4, C6, C7, C8
 - `src/ui/ShiftPanel.tsx` — C6
 - `src/ui/GameOverPanel.tsx` — D1
