@@ -1,10 +1,11 @@
 import type { CareerStats } from '../game/careerStats';
+import { SCENARIOS } from '../game/scenarios';
 import type { GameState } from '../game/types';
 
 interface Props {
   state: GameState;
   career: CareerStats;
-  onRestart: () => void;
+  onRestart: (scenarioId?: string) => void;
 }
 
 export function GameOverPanel({ state, career, onRestart }: Props) {
@@ -60,7 +61,20 @@ export function GameOverPanel({ state, career, onRestart }: Props) {
         </dl>
       </article>
 
-      <button className="primary" onClick={onRestart}>Open a new place</button>
+      <section className="scenario-picker">
+        <h2 className="scenario-heading">Pick your next gig</h2>
+        <ul className="scenario-list">
+          {SCENARIOS.map((s) => (
+            <li key={s.id} className="scenario-card">
+              <button type="button" className="scenario-button" onClick={() => onRestart(s.id)}>
+                <div className="scenario-name">{s.displayName}</div>
+                <div className="scenario-tagline">{s.tagline}</div>
+                <div className="scenario-description">{s.description}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   );
 }

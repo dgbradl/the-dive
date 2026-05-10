@@ -83,7 +83,7 @@ export function App() {
     }
   }, [state]);
 
-  const resetSave = useCallback(() => {
+  const resetSave = useCallback((scenarioId?: string) => {
     // If the player abandoned a run mid-stream (i.e. didn't already game-
     // over via lease loss), still credit the days survived to career stats.
     setState((current) => {
@@ -92,7 +92,7 @@ export function App() {
         setCareer((c) => recordRunEnd(c, current));
       }
       clearSave();
-      return newGame();
+      return newGame(scenarioId);
     });
     setLastReport(null);
     setPhase('planning');

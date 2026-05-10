@@ -1,37 +1,17 @@
 import { startingRegulars } from './content';
-import { Station, type GameState } from './types';
+import { getScenario } from './scenarios';
+import type { GameState } from './types';
 
 const STORAGE_KEY = 'bargame.save.v3';
 const STORAGE_KEY_V2 = 'bargame.save.v2';
 const STORAGE_KEY_V1 = 'bargame.save.v1';
 
-export function newGame(): GameState {
-  const seed = (Math.random() * 0x7fffffff) | 0 || 1337;
-  const marvId = crypto.randomUUID();
-  return {
-    day: 1,
-    cash: 200,
-    reputation: 5,
-    rngSeed: seed,
-    hiredStaff: [
-      {
-        instanceId: marvId,
-        archetypeId: 'marv_bartender',
-        displayName: 'Marv',
-        mood: 70,
-        wagePerDay: 30,
-      },
-    ],
-    drinkPrices: [],
-    ownedUpgradeIds: [],
-    assignments: [{ staffInstanceId: marvId, station: Station.Bar }],
-    nightlySpecialDrinkId: null,
-    regulars: startingRegulars.map((r) => ({ ...r })),
-    heat: 0,
-    rentPerDay: 40,
-    drinkStock: { pbr: 12, whiskey_sour: 8, house_special: 6 },
-    signatures: [],
-  };
+/**
+ * Creates a fresh GameState. With no scenarioId (or unknown id),
+ * defaults to the "Inherited Dive" scenario.
+ */
+export function newGame(scenarioId?: string): GameState {
+  return getScenario(scenarioId).build();
 }
 
 export function migrate(raw: unknown): GameState {

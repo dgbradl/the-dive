@@ -175,6 +175,8 @@ export interface GameState {
   drinkStock: Record<string, number>;
   /** Player-authored signature drinks (unlocked by Cocktail Shaker). */
   signatures: Signature[];
+  /** Which starting scenario this run was launched with. */
+  scenarioId?: string;
 }
 
 /** A weekly milestone — the lease threats and rep gates that pressure the run. */
