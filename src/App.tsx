@@ -17,8 +17,9 @@ import { ShiftPanel } from './ui/ShiftPanel';
 import { ResultsPanel } from './ui/ResultsPanel';
 import { GameOverPanel } from './ui/GameOverPanel';
 import { TransitionOverlay, type TransitionKind } from './ui/TransitionOverlay';
+import { TitlePanel } from './ui/TitlePanel';
 
-type Phase = 'planning' | 'shift' | 'results' | 'gameOver';
+type Phase = 'title' | 'planning' | 'shift' | 'results' | 'gameOver';
 
 function naturalStation(role: StaffRole): Station {
   switch (role) {
@@ -28,9 +29,24 @@ function naturalStation(role: StaffRole): Station {
   }
 }
 
+/**
+ * Lazily reads localStorage once at boot to figure out whether to default
+ * the phase to the title screen with a Continue option, or just the title
+ * screen with scenario picks. The persist `useEffect` will write back on
+ * the first render, so this check has to happen before any other state.
+ */
+function bootHasSavedRun(): boolean {
+  try {
+    return localStorage.getItem('bargame.save.v3') !== null
+        || localStorage.getItem('bargame.save.v2') !== null
+        || localStorage.getItem('bargame.save.v1') !== null;
+  } catch { return false; }
+}
+
 export function App() {
+  const [hadSaveOnBoot] = useState(() => bootHasSavedRun());
   const [state, setState] = useState<GameState>(() => load() ?? newGame());
-  const [phase, setPhase] = useState<Phase>('planning');
+  const [phase, setPhase] = useState<Phase>('title');
   const [lastReport, setLastReport] = useState<ShiftReport | null>(null);
   const [career, setCareer] = useState<CareerStats>(() => loadCareerStats());
   const [unlockedThisShift, setUnlockedThisShift] = useState<string[]>([]);
@@ -114,6 +130,20 @@ export function App() {
       setPhase('gameOver');
     }
   }, [state]);
+
+  const continueRun = useCallback(() => {
+    setPhase('planning');
+  }, []);
+
+  const startScenarioFromTitle = useCallback((scenarioId: string) => {
+    // Picking a scenario from the title — fresh save under that scenario.
+    setState(() => {
+      clearSave();
+      return newGame(scenarioId);
+    });
+    setLastReport(null);
+    setPhase('planning');
+  }, []);
 
   const resetSave = useCallback((scenarioId?: string) => {
     // If the player abandoned a run mid-stream (i.e. didn't already game-
@@ -239,6 +269,15 @@ export function App() {
 
   return (
     <div className="app">
+      {phase === 'title' && (
+        <TitlePanel
+          savedState={hadSaveOnBoot ? state : null}
+          career={career}
+          onContinue={continueRun}
+          onPickScenario={startScenarioFromTitle}
+          onResetSave={() => resetSave()}
+        />
+      )}
       {phase === 'planning' && (
         <PlanningPanel
           state={state}
