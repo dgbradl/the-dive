@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { catalog } from './game/content';
 import {
   loadCareerStats,
@@ -15,6 +15,7 @@ import { PlanningPanel } from './ui/PlanningPanel';
 import { ShiftPanel } from './ui/ShiftPanel';
 import { ResultsPanel } from './ui/ResultsPanel';
 import { GameOverPanel } from './ui/GameOverPanel';
+import { TransitionOverlay, type TransitionKind } from './ui/TransitionOverlay';
 
 type Phase = 'planning' | 'shift' | 'results' | 'gameOver';
 
@@ -31,6 +32,19 @@ export function App() {
   const [phase, setPhase] = useState<Phase>('planning');
   const [lastReport, setLastReport] = useState<ShiftReport | null>(null);
   const [career, setCareer] = useState<CareerStats>(() => loadCareerStats());
+  const [transition, setTransition] = useState<TransitionKind | null>(null);
+  const prevPhaseRef = useRef<Phase>('planning');
+
+  // Fire a transition overlay when the phase changes. planning→shift = dolly
+  // (camera dolly into the bar). shift→results = lights-up cut.
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    if (prev !== phase) {
+      if (prev === 'planning' && phase === 'shift') setTransition('dolly');
+      else if (prev === 'shift' && phase === 'results') setTransition('lights-up');
+      prevPhaseRef.current = phase;
+    }
+  }, [phase]);
 
   // Persist on every state change.
   useEffect(() => {
@@ -231,6 +245,9 @@ export function App() {
       )}
       {phase === 'gameOver' && (
         <GameOverPanel state={state} career={career} onRestart={resetSave} />
+      )}
+      {transition && (
+        <TransitionOverlay kind={transition} onDone={() => setTransition(null)} />
       )}
     </div>
   );
