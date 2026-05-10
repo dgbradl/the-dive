@@ -296,20 +296,83 @@ mount. Main bundle 1.65 MB → 204 KB. Slice 16.
 **E6.** ✅ Smoke tests for UI. RTL + JSDOM coverage of the React
 shell with Phaser mocked. Slice 23.
 
-## What's still open
+## What's still open from A–E
 
-The backlog is essentially complete. Two known gaps remain:
+Two known gaps remain from the original punch list:
 
-- **C4 — pool table** on the floor. Skipped during 21; the floor
-  is already busy with two tables, the jukebox, the queue line,
-  and seated customers. Future re-layout could fit it.
+- **C4 — pool table** on the floor. Skipped during 21; floor is busy.
 - **C7 — walk-cycle sprites.** Needs new pixel-art (4-frame walk
-  cycles per archetype + named staff). Asset blocker; no code is
-  blocking this from landing the moment the art exists.
+  cycles per archetype + named staff). Asset blocker.
 
-Anything beyond that — additional content (more drinks, customer
-archetypes, events), tuning passes, or a tutorial — is open
-exploration rather than punch-list work.
+## F. Future ideas (post-A–E)
+
+Brainstorming bin. Items are sized roughly: **S** (single short slice),
+**M** (one focused session), **L** (multi-slice or needs design pass).
+Pick what's interesting; many of these are mutually independent.
+
+### F1. Content additions
+- **F1.1.** More drinks (Margarita, Manhattan, Old Fashioned, Hot Toddy). Each with caseSize/casePrice + tip multiplier feel. **S**
+- **F1.2.** More customer archetypes — Off-Duty Cop (high tip, low patience, neutralizes Crisis events), Hipster (tips well for signature drinks specifically), Snowed-In Trucker (low rep gate, big drinker). **M**
+- **F1.3.** More named regulars — extend the roster from 4 to ~10 so the bar feels populated even after a few walkouts. **S**
+- **F1.4.** More events — power outage (-rep but +heat decay), big-game-on-TV (boosts rowdy spawn), snowstorm (everyone's patience +2 because nowhere else to go). **M**
+- **F1.5.** More upgrades — Better Lights (rep +1 per night), Velvet Rope (door staff effectiveness +20%), Late-Night Menu (unlocks 2 new drinks at rep 25+). **M**
+- **F1.6.** More achievements — 8–10 more (Rep 50, no-mishap-week, all-signatures-served-in-one-night, etc.). **S**
+
+### F2. Mechanics depth
+- **F2.1.** Drink quality matters. `Drink.quality` is currently dead; fold it into tip math (high-quality drinks tip ~15% more). **S**
+- **F2.2.** Reputation tiers visible. Unlock a rep "title" each 20 points: Nobody's Bar → Neighborhood Spot → The Place → Legendary. Show on planning header. **S**
+- **F2.3.** Drink prep time. `Drink.prepTicks` is dead; bartender can only serve one drink per `prepTicks` window. Lets Quick trait matter more. **M**
+- **F2.4.** Tip jar mechanic. Server-station staff get a separate tip pool; player can add it to next-day cash or distribute as a mood boost. **M**
+- **F2.5.** Pricing pressure. Customers walk if a drink's price ≥ N× its suggested. Currently free margin dial. **S**
+- **F2.6.** Heat contagion. A rowdy customer raises the heat contribution of nearby customers; clustering on stools matters. **M**
+- **F2.7.** Cover charge at the door. Optional flat fee on entry (slows arrivals, guarantees revenue). **S**
+- **F2.8.** Loyalty perks. Every Nth serve to a regular is on the house — they tip extra next time. **M**
+- **F2.9.** Group orders. Wedding Party orders 4 drinks at once, eats more capacity. **S**
+- **F2.10.** Health code score. Damage events accumulate to a "health code" hidden stat; high values force the inspector to fire harder. **M**
+
+### F3. Visual / juice
+- **F3.1.** Phase transition flourish. Big "PRIME TIME" / "LAST CALL" banner sweeps across the canvas at phase boundaries instead of just a chalkboard label change. **S**
+- **F3.2.** Per-customer cash popups in the canvas. Today the cash toast floats from the right side; emit it from the customer's position so you see who tipped who. **S**
+- **F3.3.** Marv yells at the rowdy. During a heat decision, briefly tween the camera onto the troublemaker; speech bubble shows Marv's prompt. **M**
+- **F3.4.** End-of-night flourish. Marv waves; lights dim; receipt slides up. Plays before the typewriter receipt. **S**
+- **F3.5.** Per-scenario bar decor. Pop-Up Bar has a different back wall (string lights instead of bottle shelf). Bought a Wreck has visible water-stain damage. **M**
+- **F3.6.** Crowd density visualization. When >5 customers waiting, draw silhouettes in the queue beyond the visible 5 to imply pressure. **S**
+- **F3.7.** Receipt printer animation. The receipt rolls down from the top of the screen on game-over instead of fading in. **S**
+
+### F4. UX / quality of life
+- **F4.1.** First-run tutorial overlay. Tooltips on each section the very first time the player sees the planning panel. **M**
+- **F4.2.** HUD tooltips. Hover (or tap-and-hold) on TILL / HEAT / DAMAGE for one-line explanations. **S**
+- **F4.3.** Milestone progress bar. Visual fill toward the lease target on the banner instead of just numbers. **S**
+- **F4.4.** Confirm before firing staff. The fire-× is one click; add a confirm. **S**
+- **F4.5.** Replay last shift button. From the game-over or planning, watch the cinematic again to diagnose the night. **M**
+- **F4.6.** Compact-vs-detailed log toggle. Filter the shift log to just decisions / mishaps / serves. **S**
+- **F4.7.** Keyboard shortcut on planning. Space → Open the doors. **S**
+- **F4.8.** Pause button mid-shift. The cinematic pauses on decisions today; add an explicit pause for reading the log. **S**
+
+### F5. Meta / progression
+- **F5.1.** Run history log. Last 10 runs with date, scenario, days survived, final cash. Lives on the title screen behind a "History" disclosure. **M**
+- **F5.2.** Persistent unlocks. Spend career-stat currency on permanent perks (start with +$50, mood +5, etc.). **L** — needs a small currency loop.
+- **F5.3.** Local leaderboard. Top 5 best runs by days survived; surfaced on the title screen + game-over. **S**
+- **F5.4.** Difficulty modifiers. Per-scenario knobs the player picks: rent-up, fewer-regulars, no-bouncer-allowed. Increases the daily-challenge surface area. **M**
+
+### F6. Sound design
+- **F6.1.** Procedural ambient bar chatter loop. Generated via Web Audio (multiple low-volume tone-buffer sources at random pitches). No asset dep. **M**
+- **F6.2.** Per-decision SFX. Distinct cues for POUR (bottle pour), CUT OFF (whistle), 86 HIM (door slam). **S**
+- **F6.3.** Real music tracks. Two short loops (CC0) — quiet for Early/Prime, louder for Last Call. Adds Howler dep. **L** — asset hunt + loop-point selection.
+
+### F7. Tech & infra
+- **F7.1.** Error boundary. Catch runtime errors with a "fresh start" button instead of white-screening. **S**
+- **F7.2.** Service worker update prompt. When `vite-plugin-pwa` detects a new version, surface a "Refresh for the latest" toast. **S**
+- **F7.3.** Localization-ready. Move user-facing strings into a single dictionary so future translation is mechanical. **M**
+- **F7.4.** Color-blind alt palette. A toggle in Settings to swap stain-cherry / stain-mint to texture-coded variants. **M**
+- **F7.5.** Performance pass. Profile the shift cinematic on a low-end Android; trim Phaser draw calls if needed. **M**
+
+### F8. Stretch — bigger directions
+- **F8.1.** Multi-bar tycoon mode. Once you survive 30 days you can buy a second venue with shared career stats but separate runs. **L**
+- **F8.2.** Story / narrative thread. Letters from the landlord, a shady investor, a romantic regular. Threaded across runs as small newspaper inserts. **L**
+- **F8.3.** Card-pull deck of nightly modifiers. Before each shift, pick 1 of 3 face-up cards from a deck (e.g. "Bachelor party in town", "Blizzard"). Player feels agency over the random side. **L**
+- **F8.4.** Wholesaler relationships. Multiple suppliers per drink, cheaper bulk rates after N orders, occasional shortages. **L**
+- **F8.5.** Real PNG icons + screenshots. Generate proper 192/512 PNG icons (currently SVG-only) and a few launch screenshots for richer install metadata. **S**
 
 ## Patterns to lean on
 - `runShift(state, config, catalog, seed)` in `src/game/simulator.ts` — pure
@@ -343,19 +406,27 @@ exploration rather than punch-list work.
 
 ## Highest-leverage next moves
 
-The A–E backlog is closed. From here the useful directions are
-exploratory:
+Picks from F that punch above their weight:
 
-1. **Content sprint.** Author more drinks, customer archetypes,
-   regulars, and events in `src/game/content.ts`. Pure additions;
-   blend with one new mechanic so it doesn't go stale.
-2. **Tuning pass.** Play 3–5 full Day-7 lease runs across the four
-   scenarios, adjust HEAT / decision triggers / rep magnitudes so
-   each scenario feels distinct.
-3. **Sound design upgrade.** Add procedural background ambience
-   (low murmur loop) + per-decision SFX. Audio module is already
-   abstracted, so swapping in Howler later is small.
-4. **Tutorial / onboarding.** A two-screen first-run intro
-   (morning planning + shift cinematic) would smooth the learning
-   curve. The game is small enough to learn by playing today, but
-   the milestone banner copy is dense.
+1. **Content sprint** = F1.1 + F1.2 + F1.4 (drinks, archetypes, events)
+   in one slice. Pure additions to `src/game/content.ts`, plus 2 new
+   tests. The most visible per line of code.
+2. **F2.1 — Drink quality matters.** Single-line fix to the tip math
+   that revives a dead field; high-quality drinks suddenly feel
+   different to make. Smallest depth-feeling change.
+3. **F2.2 — Reputation tier title** on the planning header
+   ("Neighborhood Spot", "Legendary"). Reads as long-arc progress
+   without a UI rework.
+4. **F4.2 — HUD tooltips.** Tap-and-hold/hover explanations for
+   TILL / HEAT / DAMAGE — kills the "what does this mean?" friction
+   without a full tutorial.
+5. **F6.1 — Procedural ambient bar chatter loop.** Layers under the
+   existing SFX with no new dependency. The shift goes from "list
+   of pings" to "you're in a bar."
+6. **F4.1 — First-run tutorial.** Less critical now that the title
+   screen sets context, but still smooths the first 60 seconds for
+   a stranger.
+
+Bigger directions (F8) are on the menu when the moment-to-moment
+game feels solid. Tuning is best done in your hand, not in a
+plan — keep playing and notice where your attention goes.
