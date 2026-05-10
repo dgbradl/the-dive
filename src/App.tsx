@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { catalog } from './game/content';
+import {
+  loadCareerStats,
+  recordRunEnd,
+  recordShift,
+  saveCareerStats,
+  type CareerStats,
+} from './game/careerStats';
 import { evaluateMilestoneFor } from './game/milestones';
 import { applyReport, runShift } from './game/simulator';
 import { clearSave, load, newGame, nextDaySeed, save } from './game/save';
@@ -23,11 +30,16 @@ export function App() {
   const [state, setState] = useState<GameState>(() => load() ?? newGame());
   const [phase, setPhase] = useState<Phase>('planning');
   const [lastReport, setLastReport] = useState<ShiftReport | null>(null);
+  const [career, setCareer] = useState<CareerStats>(() => loadCareerStats());
 
   // Persist on every state change.
   useEffect(() => {
     save(state);
   }, [state]);
+
+  useEffect(() => {
+    saveCareerStats(career);
+  }, [career]);
 
   const startShift = useCallback(() => {
     const seed = nextDaySeed(state.rngSeed, state.day);
@@ -35,6 +47,7 @@ export function App() {
     const { state: postState, report } = applyReport(state, raw);
     setLastReport(report);
     setState(postState);
+    setCareer((c) => recordShift(c, report));
     setPhase('shift');
   }, [state]);
 
@@ -60,15 +73,27 @@ export function App() {
     setPhase('planning');
   }, []);
 
-  // After advancing day, if the lease check failed, transition to game over.
+  // After advancing day, if the lease check failed, record the run-end
+  // and transition to game over.
   useEffect(() => {
     const flagged = (state as GameState & { _leaseFailed?: boolean })._leaseFailed;
-    if (flagged) setPhase('gameOver');
+    if (flagged) {
+      setCareer((c) => recordRunEnd(c, state));
+      setPhase('gameOver');
+    }
   }, [state]);
 
   const resetSave = useCallback(() => {
-    clearSave();
-    setState(newGame());
+    // If the player abandoned a run mid-stream (i.e. didn't already game-
+    // over via lease loss), still credit the days survived to career stats.
+    setState((current) => {
+      const flagged = (current as GameState & { _leaseFailed?: boolean })._leaseFailed;
+      if (!flagged) {
+        setCareer((c) => recordRunEnd(c, current));
+      }
+      clearSave();
+      return newGame();
+    });
     setLastReport(null);
     setPhase('planning');
   }, []);
@@ -205,7 +230,7 @@ export function App() {
         <ResultsPanel report={lastReport} state={state} catalog={catalog} onNextDay={advanceDay} />
       )}
       {phase === 'gameOver' && (
-        <GameOverPanel state={state} onRestart={resetSave} />
+        <GameOverPanel state={state} career={career} onRestart={resetSave} />
       )}
     </div>
   );
