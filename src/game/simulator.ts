@@ -619,6 +619,7 @@ export function runShift(
           repDelta: -Math.ceil(config.repPerWalkout),
           customerArchetypeId: c.archetype.id,
           regularId: c.regular?.id,
+          walkoutReason: 'stockout',
           customerDisplayName: customerName,
         });
         continue;
@@ -737,6 +738,7 @@ export function runShift(
           customerArchetypeId: lost.archetype.id,
           regularId: lost.regular?.id,
           customerDisplayName: lostName,
+          walkoutReason: 'patience',
         });
       }
     }
@@ -816,6 +818,7 @@ export function runShift(
       customerArchetypeId: c.archetype.id,
       regularId: c.regular?.id,
       customerDisplayName: closeName,
+      walkoutReason: 'closed',
     });
   }
 

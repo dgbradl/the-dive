@@ -22,7 +22,22 @@ export function composeStory(
   } else if (served === 0) {
     sentences.push(`Nobody got a drink. ${lost} gave up and walked.`);
   } else {
-    sentences.push(`${served} ${nGuests(served)} got their drinks; ${lost} got tired and left.`);
+    sentences.push(`${served} ${nGuests(served)} got their drinks; ${lost} walked.`);
+  }
+
+  // Break the walkouts down by cause when there were any.
+  if (lost > 0) {
+    const byReason = { patience: 0, stockout: 0, closed: 0 } as Record<'patience' | 'stockout' | 'closed', number>;
+    for (const e of report.entries) {
+      if (e.kind !== 'Walkout') continue;
+      const r = e.walkoutReason ?? 'patience';
+      byReason[r] += 1;
+    }
+    const fragments: string[] = [];
+    if (byReason.patience > 0) fragments.push(`${byReason.patience} got tired of waiting`);
+    if (byReason.stockout > 0) fragments.push(`${byReason.stockout} hit empty stock`);
+    if (byReason.closed > 0)   fragments.push(`${byReason.closed} stuck around past close`);
+    if (fragments.length > 0) sentences.push(`Of those: ${joinNames(fragments)}.`);
   }
 
   // Crew at the bar.
