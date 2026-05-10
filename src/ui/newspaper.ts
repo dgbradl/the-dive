@@ -99,6 +99,24 @@ export function composeStory(
     sentences.push(`${joinNames(lost)} walked out — won't forget that one soon.`);
   }
 
+  // Signature shoutouts — count serves of each player-named signature.
+  const sigCounts = new Map<string, number>();
+  const sigDrinkNames = new Set(state.signatures.map((s) => s.displayName));
+  for (const e of report.entries) {
+    if (e.kind !== 'Served') continue;
+    for (const name of sigDrinkNames) {
+      // entry text format: "Served X a NAME (+$Y, tip $Z)" — match the drink name.
+      if (e.text.includes(` a ${name} `) || e.text.includes(` a ${name}.`)) {
+        sigCounts.set(name, (sigCounts.get(name) ?? 0) + 1);
+      }
+    }
+  }
+  for (const [name, count] of sigCounts) {
+    if (count === 1) sentences.push(`The ${name} landed once tonight.`);
+    else if (count === 2) sentences.push(`The ${name} landed twice.`);
+    else sentences.push(`The ${name} landed ${count} times.`);
+  }
+
   // Rep-tier color.
   const archIds = new Set(
     report.entries.filter((e) => e.kind === 'CustomerArrived').map((e) => e.customerArchetypeId),

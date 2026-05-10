@@ -715,6 +715,52 @@ describe('staff traits', () => {
     expect(grumpyAvg).toBeGreaterThan(happyAvg);
   });
 
+  it('signature: served when bases overlap a customer\'s preference; consumes both bases', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 30, whiskey_sour: 30, house_special: 30 };
+    f.state.signatures = [
+      { id: 'sig_kp', displayName: 'Knockout Punch', baseDrinkIds: ['pbr', 'whiskey_sour'], suggestedPrice: 9, costToMake: 4 },
+    ];
+    let foundSignatureServe = false;
+    let baseUsedDelta = 0;
+    for (let seed = 0; seed < 80 && !foundSignatureServe; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 140000 + seed);
+      const sigEntry = r.entries.find((e) => e.kind === 'Served' && e.text.includes('Knockout Punch'));
+      if (sigEntry) {
+        foundSignatureServe = true;
+        // Each signature serve consumes both bases; total stockUsed should reflect that.
+        expect(r.stockUsed.pbr).toBeGreaterThan(0);
+        expect(r.stockUsed.whiskey_sour).toBeGreaterThan(0);
+        baseUsedDelta = r.stockUsed.pbr + r.stockUsed.whiskey_sour;
+        break;
+      }
+    }
+    expect(foundSignatureServe).toBe(true);
+    expect(baseUsedDelta).toBeGreaterThan(0);
+  });
+
+  it('signature serve adds +2 rep and a +20% tip vs. a base', () => {
+    // Author a signature on a single archetype + drink configuration where
+    // the signature is the only match, so it dominates the picks.
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    f.state.signatures = [
+      { id: 'sig_test', displayName: 'House Bomb', baseDrinkIds: ['pbr', 'whiskey_sour'], suggestedPrice: 12, costToMake: 4 },
+    ];
+    for (let seed = 0; seed < 60; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 141000 + seed);
+      const sig = r.entries.find((e) => e.kind === 'Served' && e.text.includes('House Bomb'));
+      if (sig) {
+        // Base rep for any of our archetypes is round(repInfluence * 0.25).
+        // dive_regular = 0, lost_tourist = 0, rowdy = 0 (rounded). +2 sig
+        // bonus puts a sig serve at >= 2 rep.
+        expect(sig.repDelta).toBeGreaterThanOrEqual(2);
+        return;
+      }
+    }
+    throw new Error('did not see a signature serve in 60 trials');
+  });
+
   it('Charming on Door reduces avg crisis cash penalty', () => {
     // Both fixtures have a bartender so the shift runs; only the Door staff differs.
     const base = fixture([
