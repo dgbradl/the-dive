@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { ACHIEVEMENTS } from '../game/achievements';
 import type { CareerStats } from '../game/careerStats';
+import { dailyShareText } from '../game/dailyShare';
 import { SCENARIOS } from '../game/scenarios';
 import type { GameState } from '../game/types';
 
@@ -11,6 +13,20 @@ interface Props {
 
 export function GameOverPanel({ state, career, onRestart }: Props) {
   const daysThisRun = Math.max(0, state.day - 1);
+  const shareText = dailyShareText(state, career);
+  const [copied, setCopied] = useState(false);
+
+  const onShare = async () => {
+    if (!shareText) return;
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // ignore — clipboard might be denied; the user can still read it on screen
+      setCopied(false);
+    }
+  };
   return (
     <div className="panel game-over-panel">
       <article className="game-over-card grit-grain">
@@ -65,6 +81,15 @@ export function GameOverPanel({ state, career, onRestart }: Props) {
           </div>
         </dl>
       </article>
+
+      {shareText && (
+        <section className="daily-share">
+          <pre className="daily-share-text">{shareText}</pre>
+          <button type="button" className="daily-share-btn" onClick={onShare}>
+            {copied ? 'Copied!' : 'Copy daily result'}
+          </button>
+        </section>
+      )}
 
       <section className="scenario-picker">
         <h2 className="scenario-heading">Pick your next gig</h2>

@@ -164,6 +164,11 @@ export class BarScene extends Phaser.Scene {
       color: COLORS.dim,
     }).setOrigin(0.5);
 
+    // Dartboard — small wall-mounted target right of the door, three darts
+    // already stuck in. Decorative; same procedural geometry pattern as
+    // the jukebox.
+    this.makeDartboard(this.viewW * 0.16, this.viewH * 0.36);
+
     // Floor tables — two ellipse tabletops with seat slots around them.
     const tableSpots: [number, number][] = [
       [this.viewW * 0.24, this.viewH * 0.82],
@@ -244,6 +249,22 @@ export class BarScene extends Phaser.Scene {
       ease: 'Steps(2)',
     });
     return c;
+  }
+
+  /**
+   * Wall-mounted dartboard centered at (x, y). Three concentric circles
+   * (rim / wedge field / bullseye) plus three small dart-tip cherry dots
+   * scattered slightly off-center.
+   */
+  private makeDartboard(x: number, y: number) {
+    const r = 14;
+    this.add.circle(x, y, r,     0x6a4a2e).setStrokeStyle(2, 0x261a10); // rim
+    this.add.circle(x, y, r - 5, 0x4a3220);                              // ring
+    this.add.circle(x, y, r - 9, 0xb88a4a);                              // bullseye amber
+    // Three cherry dart marks scattered just off-center.
+    this.add.circle(x - 2, y - 1, 1, 0xc84a2a);
+    this.add.circle(x + 3, y + 2, 1, 0xc84a2a);
+    this.add.circle(x - 1, y + 4, 1, 0xc84a2a);
   }
 
   private shakeJukebox() {

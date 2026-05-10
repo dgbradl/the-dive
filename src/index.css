@@ -1387,6 +1387,40 @@ button.ghost {
 .game-over-flavor { font-style: italic; color: #4a3a26; }
 .game-over-panel button.primary { width: 100%; max-width: 280px; }
 
+/* Daily challenge share box */
+.daily-share {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--tavern-pitch);
+  border: 1px solid var(--tavern-amber);
+  box-shadow: var(--etch-1), var(--glow-amber);
+}
+.daily-share-text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--ink-bone);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.daily-share-btn {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  background: var(--tavern-amber);
+  color: var(--tavern-pitch);
+  border: 1px solid var(--tavern-amber);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: var(--drop-1);
+}
+.daily-share-btn:active { transform: translate(1px, 1px); box-shadow: var(--drop-press); }
+
 /* Scenario picker on game over */
 .scenario-picker { width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .scenario-heading {
