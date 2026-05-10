@@ -278,6 +278,8 @@ export interface ShiftEntry {
   heatAfter?: number;
   /** Set on Decision entries — index into report.decisions. */
   decisionIndex?: number;
+  /** On Walkout entries: why they left, so the UI can be specific about it. */
+  walkoutReason?: 'patience' | 'stockout' | 'closed';
 }
 
 export interface DamageRecord {

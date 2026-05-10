@@ -32,7 +32,8 @@ function tickMsFor(entry: ShiftEntry): number {
     case 'Note':    return entry.phase ? 500 : 360;
     case 'Wages':   return 200;
     case 'Decision': return 220;
-    default:        return 220; // CustomerArrived / Served / Walkout
+    case 'Walkout': return 700; // linger so the player reads why
+    default:        return 220; // CustomerArrived / Served
   }
 }
 
@@ -313,7 +314,12 @@ function bartenderVoiceFor(entry: ShiftEntry): string | null {
     if (entry.phase === 'LastCall') return 'Last call. Watch the rowdy ones.';
   }
   if (entry.kind === 'Mishap') return 'Someone’s losing their grip.';
-  if (entry.kind === 'Walkout') return 'There goes one out the door.';
+  if (entry.kind === 'Walkout') {
+    const who = entry.customerDisplayName ?? 'Someone';
+    if (entry.walkoutReason === 'stockout') return `${who} wanted something we’re out of. Stockout walks.`;
+    if (entry.walkoutReason === 'closed') return `${who} didn’t get served before close.`;
+    return `${who} got tired of waiting. Long-line walkout.`;
+  }
   if (entry.kind === 'Event' && entry.cashDelta < 0) return 'That’s gonna leave a mark.';
   if (entry.kind === 'Event' && entry.cashDelta > 0) return 'Now we’re cooking.';
   return null;

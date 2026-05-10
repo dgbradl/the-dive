@@ -612,19 +612,42 @@ describe('staff traits', () => {
     }
   });
 
+  it('walkout entries are tagged with a reason (patience / stockout / closed)', () => {
+    // Empty-stock fixture forces stockout walkouts; no-staff fixture forces
+    // patience + close walkouts.
+    const stockoutFixture = fixture([{ traits: [], station: Station.Bar }]);
+    stockoutFixture.state.drinkStock = { pbr: 0, whiskey_sour: 0, house_special: 0 };
+    const noStaff = fixture([]);
+
+    const reasonsSeen = new Set<string>();
+    for (let seed = 0; seed < 30; seed++) {
+      const r1 = runShift(stockoutFixture.state, defaultShiftConfig, stockoutFixture.catalog, 200000 + seed);
+      const r2 = runShift(noStaff.state, defaultShiftConfig, noStaff.catalog, 201000 + seed);
+      for (const e of [...r1.entries, ...r2.entries]) {
+        if (e.kind === 'Walkout' && e.walkoutReason) reasonsSeen.add(e.walkoutReason);
+      }
+    }
+    expect(reasonsSeen.has('stockout')).toBe(true);
+    expect(reasonsSeen.has('patience') || reasonsSeen.has('closed')).toBe(true);
+  });
+
   it('nightly special: setting it raises that drink\'s share of preferred picks', () => {
+    // PBR is preferred by 2 archetypes (dive_regular + rowdy_college_kid),
+    // so the +20% pick bias has more surface area to express. Whiskey Sour
+    // and House Special are each preferred by only one, so signal is
+    // weaker and the test would flake at the post-tuning spawn rates.
     const baseline = fixture([{ traits: [], station: Station.Bar }]);
     baseline.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
     const special = fixture([{ traits: [], station: Station.Bar }]);
     special.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
-    special.state.nightlySpecialDrinkId = 'house_special';
+    special.state.nightlySpecialDrinkId = 'pbr';
     let baselineShare = 0;
     let specialShare = 0;
-    for (let seed = 0; seed < 80; seed++) {
+    for (let seed = 0; seed < 200; seed++) {
       const r1 = runShift(baseline.state, defaultShiftConfig, baseline.catalog, 110000 + seed);
       const r2 = runShift(special.state, defaultShiftConfig, special.catalog, 110000 + seed);
-      baselineShare += r1.entries.filter((e) => e.kind === 'Served' && e.text.includes('House Special')).length;
-      specialShare += r2.entries.filter((e) => e.kind === 'Served' && e.text.includes('House Special')).length;
+      baselineShare += r1.entries.filter((e) => e.kind === 'Served' && /\bPBR\b/.test(e.text)).length;
+      specialShare  += r2.entries.filter((e) => e.kind === 'Served' && /\bPBR\b/.test(e.text)).length;
     }
     expect(specialShare).toBeGreaterThan(baselineShare);
   });
