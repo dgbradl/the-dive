@@ -157,6 +157,15 @@ week-long arc rather than a 3-min run.
   entry kind: Event 600 ms, Mishap 500 ms, phase Note 500 ms, Wages
   200 ms, default 220 ms. Crisis-flavored Events (inspector / fight /
   scrap / brawl) trigger a 220 ms camera shake + 120 ms amber flash.
+- ✅ **Slice 15 — Starting scenarios (D2).** Three pickable starts:
+  Inherited Dive (default), Bought a Wreck (tighter cash + higher
+  rent), Pop-Up Bar (no rent, no regulars). New scenario picker on
+  GameOverPanel. `state.scenarioId` records which run is active.
+- ✅ **Slice 16 — Phaser bundle split (E5).** ShiftPanel dynamic-
+  imports Phaser + BarScene on first navigation. Main bundle 1.65 MB
+  → 204 KB; planning + game-over screens load instantly.
+- ✅ **Slice 17 — Animated transitions (C8).** 700 ms dolly overlay
+  on planning → shift; 500 ms lights-up cut on shift → results.
 
 ## Suggested first 5 slices
 
@@ -238,17 +247,15 @@ events trigger a camera shake + amber flash. Slice 14.
 **C7.** ⏳ Pixel-art sprite swap. Static portraits ship in Slice 6 (the
 Sepia Tavern asset drop). **Still open:** 4-frame walk cycles for
 customer/staff sprites — needs new art that we don't have yet.
-**C8.** Animated transitions. Planning → Shift = camera dolly into the
-bar; Shift → Results = lights-up cut. Sells the world. Touches `App.tsx`,
-`PhaserBarScene.ts`.
+**C8.** ✅ Animated transitions. 700 ms dolly overlay (planning → shift)
++ 500 ms lights-up cut (shift → results). Slice 17.
 
 ### D. Meta / replayability (after first run is fun)
 **D1.** ✅ Career stats screen on bankruptcy. CAREER LEDGER card on
 GameOverPanel with runsPlayed / bestRunDays / bestRunCash /
 biggestTip / busiestNight / lifetimeDays. Slice 12.
-**D2.** Multiple starting scenarios. "Inherited dive" (default), "Bought a
-wreck" (less cash, more disrepair), "Pop-up bar" (3-day timer for huge
-profit).
+**D2.** ✅ Multiple starting scenarios. Inherited Dive / Bought a Wreck /
+Pop-Up Bar. Picker on game-over screen. Slice 15.
 **D3.** Achievement-style milestones. "Survive a health inspector with no
 bouncer", "Run a 100% college-kid night", etc.
 **D4.** Daily seed challenge. Same seed for everyone today; share your
@@ -260,8 +267,8 @@ files that don't exist).
 **E3.** ✅ Save migrations. `STORAGE_KEY` v1 → v2 with a forward
 migrator that synthesizes new fields on legacy saves. Slice 7.
 **E4.** Settings panel. Mute, music volume, reset save, credits.
-**E5.** Bundle splitting. Phaser is 1.4 MB. Lazy-import on first navigation
-to ShiftPanel so the planning screen loads instantly.
+**E5.** ✅ Bundle splitting. Phaser dynamic-imports on first ShiftPanel
+mount. Main bundle 1.65 MB → 204 KB. Slice 16.
 **E6.** Smoke tests for UI. Render `PlanningPanel`, click "Open the
 doors", assert phase transitions. JSDOM + React Testing Library.
 
@@ -269,17 +276,14 @@ doors", assert phase transitions. JSDOM + React Testing Library.
 
 **A + B (depth):** all done.
 **Polish (C):** C4 (dartboard / pool table remain), C7 walk-cycle
-sprites (needs art), C8 transitions.
-**Meta (D):** D2 starting scenarios, D3 achievements, D4 daily seed
-challenge.
-**Tech (E):** E2 PWA icons, E4 settings panel, E5 Phaser bundle
-splitting, E6 UI smoke tests.
+sprites (needs art).
+**Meta (D):** D3 achievements, D4 daily seed challenge.
+**Tech (E):** E2 PWA icons, E4 settings panel, E6 UI smoke tests.
 
 ## Critical files for the open items
 
-- `src/ui/PhaserBarScene.ts` — C4, C7, C8
-- `src/App.tsx` — D2, E5
-- `vite.config.ts` — E2, E5
+- `src/ui/PhaserBarScene.ts` — C4, C7
+- `vite.config.ts` — E2
 - new `Settings.tsx` — E4
 
 ## Patterns to lean on
@@ -314,10 +318,10 @@ splitting, E6 UI smoke tests.
 
 ## Highest-leverage next moves
 
-1. **D2 Starting scenarios.** "Inherited dive" (default), "Bought a
-   wreck" (less cash, more disrepair), "Pop-up bar" (3-day timer for
-   huge profit). Adds replayability variety after the first lease run.
-2. **E5 Phaser bundle splitting.** Phaser is 1.4 MB; lazy-import on
-   first navigation to ShiftPanel so planning loads instantly.
-3. **C8 Animated transitions.** Planning → Shift dolly, Shift →
-   Results lights-up cut. Sells the world.
+1. **D3 Achievement-style milestones.** "Survive a health inspector
+   with no bouncer", "Run a 100% college-kid night", etc. Surface
+   them on the career ledger.
+2. **E4 Settings panel.** Mute, music volume, reset save, credits.
+   Pulls the existing mute button into a proper menu.
+3. **E2 Real PWA icons.** Manifest references `icon-192.png` /
+   `icon-512.png` that don't exist. Asset-only fix.
