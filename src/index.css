@@ -1055,7 +1055,8 @@ button.ghost {
 }
 
 .newspaper .masthead,
-.game-over-card .masthead {
+.game-over-card .masthead,
+.career-card .masthead {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -1184,6 +1185,41 @@ button.ghost {
 .game-over-body p { margin: 0 0 10px; }
 .game-over-flavor { font-style: italic; color: #4a3a26; }
 .game-over-panel button.primary { width: 100%; max-width: 280px; }
+
+/* Career stats card — sits below the FINAL NOTICE; same paper aesthetic. */
+.career-card {
+  width: 100%;
+  background: #e8d8b0;
+  color: #1a120a;
+  font-family: var(--font-note);
+  padding: 18px 22px 14px;
+  box-shadow: 0 0 0 2px var(--hairline), inset 0 0 0 1px rgba(248, 216, 160, 0.3),
+              4px 4px 0 0 var(--hairline);
+  position: relative;
+}
+.career-card .masthead { padding-bottom: 6px; margin-bottom: 8px; }
+.career-grid {
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+}
+.career-row { display: flex; flex-direction: column; gap: 2px; }
+.career-row dt {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #4a3a26;
+  margin: 0;
+}
+.career-row dd {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  color: #1a120a;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
 
 /* ---------- Milestone banner ---------- */
 .milestone-banner {

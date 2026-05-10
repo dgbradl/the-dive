@@ -242,8 +242,6 @@ bouncer", "Run a 100% college-kid night", etc.
 final cash. Stretch — needs a server or just a "share text" copy button.
 
 ### E. Tech & infra
-**E1.** GitHub Pages auto-deploy. Workflow on push → builds → publishes.
-Public URL for sharing without local install.
 **E2.** Real PWA icons. 192 + 512 PNGs (currently the manifest references
 files that don't exist).
 **E3.** ✅ Save migrations. `STORAGE_KEY` v1 → v2 with a forward
@@ -261,8 +259,8 @@ doors", assert phase transitions. JSDOM + React Testing Library.
 pacing, C7 walk-cycle sprites (needs art), C8 transitions.
 **Meta (D):** D1 career stats on bankruptcy, D2 starting scenarios,
 D3 achievements, D4 daily seed challenge.
-**Tech (E):** E1 GitHub Pages auto-deploy, E2 PWA icons, E4 settings
-panel, E5 Phaser bundle splitting, E6 UI smoke tests.
+**Tech (E):** E2 PWA icons, E4 settings panel, E5 Phaser bundle
+splitting, E6 UI smoke tests.
 
 ## Critical files for the open items
 
@@ -271,7 +269,6 @@ panel, E5 Phaser bundle splitting, E6 UI smoke tests.
 - `src/ui/GameOverPanel.tsx` — D1
 - `src/App.tsx` — D2, E5
 - `vite.config.ts` — E2, E5
-- new `.github/workflows/` — E1
 - new `Settings.tsx` — E4
 
 ## Patterns to lean on
@@ -306,12 +303,11 @@ panel, E5 Phaser bundle splitting, E6 UI smoke tests.
 
 ## Highest-leverage next moves
 
-1. **E1 GitHub Pages auto-deploy.** Flips the project from "runs
-   locally" to "shareable link." Small workflow file; big psychological
-   unlock for sharing the build.
-2. **D1 Career stats on bankruptcy.** The `GameOverPanel` is begging
+1. **D1 Career stats on bankruptcy.** The `GameOverPanel` is begging
    for it; stash a `careerStats` slice that tracks best night, biggest
    tip, longest streak across runs. Turns each run into a record-chase.
-3. **B2 Staff mood.** Last fully-dead field on `HiredStaff` (`mood`).
-   Mood drifts each shift; <30 amplifies trait penalties, >80 amplifies
-   bonuses. Closes the staff depth loop.
+2. **C4 Phaser scene polish (jukebox).** Animated jukebox sprite that
+   shakes when an "eats a quarter" event fires.
+3. **C6 Variable tick pacing.** Slow ticks during events / fast on
+   quiet stretches; small `TICK_MS` tweak per entry kind in
+   `ShiftPanel`.
