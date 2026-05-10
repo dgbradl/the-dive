@@ -26,6 +26,7 @@ interface Props {
   onBuyUpgrade: (upgradeId: string) => void;
   onSetDrinkPrice: (drinkId: string, price: number | null) => void;
   onOrderCase: (drinkId: string) => void;
+  onSetSpecial: (drinkId: string | null) => void;
 }
 
 const MIN_PRICE = 1;
@@ -49,6 +50,7 @@ export function PlanningPanel({
   onBuyUpgrade,
   onSetDrinkPrice,
   onOrderCase,
+  onSetSpecial,
 }: Props) {
   const hiredArchetypeIds = new Set(state.hiredStaff.map((h) => h.archetypeId));
   const availableHires = catalog.staffArchetypes.filter((a) => !hiredArchetypeIds.has(a.id));
@@ -140,6 +142,32 @@ export function PlanningPanel({
             />
           ))}
         </ul>
+      </div>
+
+      <div className="section">
+        <h2>Tonight's special</h2>
+        <div className="special-pills" role="radiogroup" aria-label="Nightly special">
+          <button
+            type="button"
+            className={`special-pill ${state.nightlySpecialDrinkId === null ? 'active' : ''}`}
+            onClick={() => onSetSpecial(null)}
+            aria-pressed={state.nightlySpecialDrinkId === null}
+          >
+            None
+          </button>
+          {catalog.drinks.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className={`special-pill ${state.nightlySpecialDrinkId === d.id ? 'active' : ''}`}
+              onClick={() => onSetSpecial(d.id)}
+              aria-pressed={state.nightlySpecialDrinkId === d.id}
+            >
+              {d.displayName}
+            </button>
+          ))}
+        </div>
+        <p className="special-hint">+20% pick weight on customers who like it · +1 rep per serve.</p>
       </div>
 
       <div className="section">

@@ -610,6 +610,59 @@ describe('staff traits', () => {
     }
   });
 
+  it('nightly special: setting it raises that drink\'s share of preferred picks', () => {
+    const baseline = fixture([{ traits: [], station: Station.Bar }]);
+    baseline.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    const special = fixture([{ traits: [], station: Station.Bar }]);
+    special.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    special.state.nightlySpecialDrinkId = 'house_special';
+    let baselineShare = 0;
+    let specialShare = 0;
+    for (let seed = 0; seed < 80; seed++) {
+      const r1 = runShift(baseline.state, defaultShiftConfig, baseline.catalog, 110000 + seed);
+      const r2 = runShift(special.state, defaultShiftConfig, special.catalog, 110000 + seed);
+      baselineShare += r1.entries.filter((e) => e.kind === 'Served' && e.text.includes('House Special')).length;
+      specialShare += r2.entries.filter((e) => e.kind === 'Served' && e.text.includes('House Special')).length;
+    }
+    expect(specialShare).toBeGreaterThan(baselineShare);
+  });
+
+  it('nightly special: serving the special adds +1 rep to that entry', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    f.state.nightlySpecialDrinkId = 'pbr';
+    // PBR is preferred by dive_regular and rowdy_college_kid — base rep is
+    // round(1.0 * 0.25) = 0 for dive_regular; with special bonus it should
+    // be at least 1.
+    let foundSpecialServe = false;
+    for (let seed = 0; seed < 80 && !foundSpecialServe; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 111000 + seed);
+      const specialServes = r.entries.filter((e) => e.kind === 'Served' && e.text.includes('PBR'));
+      for (const e of specialServes) {
+        // Base rep for any archetype × repPerSatisfied is at most 1; +1
+        // bonus puts a special-PBR serve at >= 1 rep.
+        if (e.repDelta >= 1) {
+          foundSpecialServe = true;
+          break;
+        }
+      }
+    }
+    expect(foundSpecialServe).toBe(true);
+  });
+
+  it('nightly special unset: behavior unchanged from default play', () => {
+    const f1 = fixture([{ traits: [], station: Station.Bar }]);
+    f1.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    f1.state.nightlySpecialDrinkId = null;
+    const f2 = fixture([{ traits: [], station: Station.Bar }]);
+    f2.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    // f2 also unset — same baseline.
+    const r1 = runShift(f1.state, defaultShiftConfig, f1.catalog, 42);
+    const r2 = runShift(f2.state, defaultShiftConfig, f2.catalog, 42);
+    expect(r1.cashDelta).toBe(r2.cashDelta);
+    expect(r1.repDelta).toBe(r2.repDelta);
+  });
+
   it('Charming on Door reduces avg crisis cash penalty', () => {
     // Both fixtures have a bartender so the shift runs; only the Door staff differs.
     const base = fixture([

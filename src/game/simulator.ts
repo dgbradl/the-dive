@@ -128,7 +128,24 @@ function withTrait(staff: OnShift[], trait: StaffTrait): OnShift[] {
   return staff.filter((s) => s.archetype.traits.includes(trait));
 }
 
-function pickDrinkForCustomer(arch: CustomerArchetype, catalog: GameCatalog, rng: Rng): Drink | null {
+/** +20% pick weight if the special is in the customer's preferred list. */
+const SPECIAL_PICK_BIAS = 0.20;
+
+function pickDrinkForCustomer(
+  arch: CustomerArchetype,
+  catalog: GameCatalog,
+  rng: Rng,
+  specialDrinkId: string | null,
+): Drink | null {
+  // If the customer prefers tonight's special, bias toward picking it.
+  if (
+    specialDrinkId &&
+    arch.preferredDrinkIds.includes(specialDrinkId) &&
+    rng.next() < SPECIAL_PICK_BIAS
+  ) {
+    const special = catalog.drinks.find((d) => d.id === specialDrinkId);
+    if (special) return special;
+  }
   if (arch.preferredDrinkIds.length > 0) {
     const id = rng.pick(arch.preferredDrinkIds);
     const d = catalog.drinks.find((x) => x.id === id);
@@ -472,7 +489,7 @@ export function runShift(
       const c = waiting.shift()!;
       capacity--;
 
-      const drink = pickDrinkForCustomer(c.archetype, catalog, rng);
+      const drink = pickDrinkForCustomer(c.archetype, catalog, rng, state.nightlySpecialDrinkId);
 
       // Stockout? They walk. Cost is already sunk in this morning's case order
       // so nothing else to deduct — but the walkout still hurts rep + heat.
@@ -514,7 +531,9 @@ export function runShift(
       const tip = Math.max(0, Math.round((baseTip + passiveTipBonus) * tipMult));
 
       const net = price - cost + tip + config.atmosphereCashPerCustomer;
-      const rep = Math.round(c.archetype.repInfluence * config.repPerSatisfied);
+      const baseRep = Math.round(c.archetype.repInfluence * config.repPerSatisfied);
+      const isSpecial = drink !== null && drink.id === state.nightlySpecialDrinkId;
+      const rep = baseRep + (isSpecial ? 1 : 0);
 
       const customerName = c.regular ? c.regular.displayName : c.archetype.displayName;
       report.customersServed++;

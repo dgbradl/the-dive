@@ -319,6 +319,39 @@ html, body, #root {
 
 .empty-hint { font-family: var(--font-note); color: var(--text-dim); font-size: 14px; }
 
+/* Tonight's special — pill selector */
+.special-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.special-pill {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--text-dim);
+  border: 1px solid var(--panel-2);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: var(--drop-press);
+}
+.special-pill:hover { color: var(--text); border-color: var(--accent); }
+.special-pill.active {
+  background: var(--accent);
+  color: var(--tavern-pitch);
+  border-color: var(--accent);
+  box-shadow: var(--drop-1);
+}
+.special-hint {
+  margin: 8px 0 0;
+  font-family: var(--font-note);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 /* Morning order — drink stock */
 .stock-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .stock-row {

@@ -130,6 +130,10 @@ export function App() {
     });
   }, []);
 
+  const setNightlySpecial = useCallback((drinkId: string | null) => {
+    setState((s) => ({ ...s, nightlySpecialDrinkId: drinkId }));
+  }, []);
+
   const orderCase = useCallback((drinkId: string) => {
     setState((s) => {
       const drink = catalog.drinks.find((d) => d.id === drinkId);
@@ -164,6 +168,7 @@ export function App() {
           onBuyUpgrade={buyUpgrade}
           onSetDrinkPrice={setDrinkPrice}
           onOrderCase={orderCase}
+          onSetSpecial={setNightlySpecial}
         />
       )}
       {phase === 'shift' && lastReport && (
