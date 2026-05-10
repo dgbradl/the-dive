@@ -317,6 +317,7 @@ export class BarScene extends Phaser.Scene {
       case 'Event':
         this.flashBanner(entry.text, '#d8a55c'); // tavern-whiskey
         if (entry.text.toLowerCase().includes('jukebox')) this.shakeJukebox();
+        if (/inspector|fight|scrap|brawl/i.test(entry.text)) this.crisisPunch();
         break;
       case 'Note':
       case 'Wages':
@@ -628,6 +629,12 @@ export class BarScene extends Phaser.Scene {
 
   private shake() {
     this.cameras.main.shake(180, 0.005);
+  }
+
+  /** Bigger camera punch on Crisis-flavored events. */
+  private crisisPunch() {
+    this.cameras.main.shake(220, 0.012);
+    this.cameras.main.flash(120, 200, 154, 58); // tavern-whiskey amber
   }
 
   private flashBanner(text: string, color: string) {

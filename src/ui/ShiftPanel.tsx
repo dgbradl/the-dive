@@ -21,7 +21,20 @@ interface Props {
   onComplete: () => void;
 }
 
-const TICK_MS = 220;
+/**
+ * Per-entry playback duration (ms). Events and mishaps slow the cinematic
+ * down so the player can read the banner; serves/arrivals run brisk.
+ */
+function tickMsFor(entry: ShiftEntry): number {
+  switch (entry.kind) {
+    case 'Event':   return 600;
+    case 'Mishap':  return 500;
+    case 'Note':    return entry.phase ? 500 : 360;
+    case 'Wages':   return 200;
+    case 'Decision': return 220;
+    default:        return 220; // CustomerArrived / Served / Walkout
+  }
+}
 
 export function ShiftPanel({ report, onComplete }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -145,13 +158,13 @@ export function ShiftPanel({ report, onComplete }: Props) {
             if (typeof entry.heatAfter === 'number') setCurrentHeat(entry.heatAfter);
             setPendingDecision(null);
             resumeRef.current = null;
-            window.setTimeout(step, TICK_MS);
+            window.setTimeout(step, tickMsFor(entry));
           };
           return; // halt the timer chain — resume() restarts it
         }
       }
 
-      window.setTimeout(step, TICK_MS);
+      window.setTimeout(step, tickMsFor(entry));
     };
 
     const emitToast = (entry: ShiftEntry) => {
