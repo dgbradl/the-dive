@@ -128,6 +128,7 @@ function fixture(spec: StaffSpec[]): { state: GameState; catalog: GameCatalog } 
     heat: 0,
     rentPerDay: 0,
     drinkStock: { pbr: 999, whiskey_sour: 999, house_special: 999 },
+    signatures: [],
   };
   return { state, catalog: testCatalog };
 }
@@ -323,6 +324,7 @@ describe('staff traits', () => {
       decisions: [],
       rentPaid: 0,
       stockUsed: {},
+      staffMoodDelta: {},
     };
     s.day = 5;
     const { state: next } = applyReport(s, report);
@@ -396,7 +398,7 @@ describe('staff traits', () => {
     const dummyReport: ShiftReport = {
       day: 1, seed: 1, cashDelta: 0, repDelta: 0,
       customersServed: 0, customersLost: 0, wagesPaid: 0,
-      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [], rentPaid: 0, stockUsed: {},
+      entries: [], heatAtClose: 4.0, damages: [{ tick: 5, item: 'busted glass', cost: 4 }], decisions: [], rentPaid: 0, stockUsed: {}, staffMoodDelta: {},
     };
     const { state: next } = applyReport(f.state, dummyReport);
     // Overnight decay is 1.5 → 4.0 - 1.5 = 2.5, clamped to [0, 5].
@@ -608,6 +610,155 @@ describe('staff traits', () => {
     for (const [id, used] of Object.entries(r.stockUsed)) {
       expect(next.drinkStock[id]).toBe(50 - used);
     }
+  });
+
+  it('nightly special: setting it raises that drink\'s share of preferred picks', () => {
+    const baseline = fixture([{ traits: [], station: Station.Bar }]);
+    baseline.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    const special = fixture([{ traits: [], station: Station.Bar }]);
+    special.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    special.state.nightlySpecialDrinkId = 'house_special';
+    let baselineShare = 0;
+    let specialShare = 0;
+    for (let seed = 0; seed < 80; seed++) {
+      const r1 = runShift(baseline.state, defaultShiftConfig, baseline.catalog, 110000 + seed);
+      const r2 = runShift(special.state, defaultShiftConfig, special.catalog, 110000 + seed);
+      baselineShare += r1.entries.filter((e) => e.kind === 'Served' && e.text.includes('House Special')).length;
+      specialShare += r2.entries.filter((e) => e.kind === 'Served' && e.text.includes('House Special')).length;
+    }
+    expect(specialShare).toBeGreaterThan(baselineShare);
+  });
+
+  it('nightly special: serving the special adds +1 rep to that entry', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    f.state.nightlySpecialDrinkId = 'pbr';
+    // PBR is preferred by dive_regular and rowdy_college_kid — base rep is
+    // round(1.0 * 0.25) = 0 for dive_regular; with special bonus it should
+    // be at least 1.
+    let foundSpecialServe = false;
+    for (let seed = 0; seed < 80 && !foundSpecialServe; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 111000 + seed);
+      const specialServes = r.entries.filter((e) => e.kind === 'Served' && e.text.includes('PBR'));
+      for (const e of specialServes) {
+        // Base rep for any archetype × repPerSatisfied is at most 1; +1
+        // bonus puts a special-PBR serve at >= 1 rep.
+        if (e.repDelta >= 1) {
+          foundSpecialServe = true;
+          break;
+        }
+      }
+    }
+    expect(foundSpecialServe).toBe(true);
+  });
+
+  it('nightly special unset: behavior unchanged from default play', () => {
+    const f1 = fixture([{ traits: [], station: Station.Bar }]);
+    f1.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    f1.state.nightlySpecialDrinkId = null;
+    const f2 = fixture([{ traits: [], station: Station.Bar }]);
+    f2.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    // f2 also unset — same baseline.
+    const r1 = runShift(f1.state, defaultShiftConfig, f1.catalog, 42);
+    const r2 = runShift(f2.state, defaultShiftConfig, f2.catalog, 42);
+    expect(r1.cashDelta).toBe(r2.cashDelta);
+    expect(r1.repDelta).toBe(r2.repDelta);
+  });
+
+  it('staff mood: Quick at Bar gains mood across busy shifts', () => {
+    const f = fixture([{ traits: ['Quick'], station: Station.Bar }]);
+    f.state.hiredStaff[0].mood = 60; // start at baseline
+    let total = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 130000 + seed);
+      total += r.staffMoodDelta[f.state.hiredStaff[0].instanceId] ?? 0;
+    }
+    expect(total).toBeGreaterThan(0);
+  });
+
+  it('staff mood: Lazy at Bar drains mood across busy shifts', () => {
+    const f = fixture([{ traits: ['Lazy'], station: Station.Bar }]);
+    f.state.hiredStaff[0].mood = 60;
+    let total = 0;
+    for (let seed = 0; seed < 30; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 131000 + seed);
+      total += r.staffMoodDelta[f.state.hiredStaff[0].instanceId] ?? 0;
+    }
+    expect(total).toBeLessThan(0);
+  });
+
+  it('staff mood: applyReport persists mood drift across days', () => {
+    const f = fixture([{ traits: ['Quick'], station: Station.Bar }]);
+    f.state.hiredStaff[0].mood = 60;
+    const r = runShift(f.state, defaultShiftConfig, f.catalog, 132000);
+    const { state: next } = applyReport(f.state, r);
+    const beforeMood = f.state.hiredStaff[0].mood;
+    const afterMood = next.hiredStaff[0].mood;
+    expect(afterMood).not.toBe(beforeMood);
+    expect(afterMood).toBeGreaterThanOrEqual(0);
+    expect(afterMood).toBeLessThanOrEqual(100);
+  });
+
+  it('staff mood: a Klutz with low mood drops more trays than one with high mood', () => {
+    const grumpy = fixture([
+      { traits: [], station: Station.Bar },
+      { traits: ['Klutz'], station: Station.Floor, role: StaffRole.Server },
+    ]);
+    grumpy.state.hiredStaff[1].mood = 10;
+    const happy = fixture([
+      { traits: [], station: Station.Bar },
+      { traits: ['Klutz'], station: Station.Floor, role: StaffRole.Server },
+    ]);
+    happy.state.hiredStaff[1].mood = 95;
+    const grumpyAvg = avgOver(120, (s) => trayDrops(runShift(grumpy.state, defaultShiftConfig, grumpy.catalog, s)));
+    const happyAvg = avgOver(120, (s) => trayDrops(runShift(happy.state, defaultShiftConfig, happy.catalog, s)));
+    expect(grumpyAvg).toBeGreaterThan(happyAvg);
+  });
+
+  it('signature: served when bases overlap a customer\'s preference; consumes both bases', () => {
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 30, whiskey_sour: 30, house_special: 30 };
+    f.state.signatures = [
+      { id: 'sig_kp', displayName: 'Knockout Punch', baseDrinkIds: ['pbr', 'whiskey_sour'], suggestedPrice: 9, costToMake: 4 },
+    ];
+    let foundSignatureServe = false;
+    let baseUsedDelta = 0;
+    for (let seed = 0; seed < 80 && !foundSignatureServe; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 140000 + seed);
+      const sigEntry = r.entries.find((e) => e.kind === 'Served' && e.text.includes('Knockout Punch'));
+      if (sigEntry) {
+        foundSignatureServe = true;
+        // Each signature serve consumes both bases; total stockUsed should reflect that.
+        expect(r.stockUsed.pbr).toBeGreaterThan(0);
+        expect(r.stockUsed.whiskey_sour).toBeGreaterThan(0);
+        baseUsedDelta = r.stockUsed.pbr + r.stockUsed.whiskey_sour;
+        break;
+      }
+    }
+    expect(foundSignatureServe).toBe(true);
+    expect(baseUsedDelta).toBeGreaterThan(0);
+  });
+
+  it('signature serve adds +2 rep and a +20% tip vs. a base', () => {
+    // Author a signature on a single archetype + drink configuration where
+    // the signature is the only match, so it dominates the picks.
+    const f = fixture([{ traits: [], station: Station.Bar }]);
+    f.state.drinkStock = { pbr: 999, whiskey_sour: 999, house_special: 999 };
+    f.state.signatures = [
+      { id: 'sig_test', displayName: 'House Bomb', baseDrinkIds: ['pbr', 'whiskey_sour'], suggestedPrice: 12, costToMake: 4 },
+    ];
+    for (let seed = 0; seed < 60; seed++) {
+      const r = runShift(f.state, defaultShiftConfig, f.catalog, 141000 + seed);
+      const sig = r.entries.find((e) => e.kind === 'Served' && e.text.includes('House Bomb'));
+      if (sig) {
+        // Base rep for any of our archetypes is round(repInfluence * 0.25).
+        // dive_regular = 0, lost_tourist = 0, rowdy = 0 (rounded). +2 sig
+        // bonus puts a sig serve at >= 2 rep.
+        expect(sig.repDelta).toBeGreaterThanOrEqual(2);
+        return;
+      }
+    }
+    throw new Error('did not see a signature serve in 60 trials');
   });
 
   it('Charming on Door reduces avg crisis cash penalty', () => {

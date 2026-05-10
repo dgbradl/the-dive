@@ -3,6 +3,7 @@ import { Station } from '../game/types';
 import { catalog } from '../game/content';
 import { upcomingMilestone } from '../game/milestones';
 import { MuteButton } from './MuteButton';
+import { RecipeBook } from './RecipeBook';
 
 const STAFF_SPRITES: Record<string, string> = {
   marv_bartender: '/sprites/marv.png',
@@ -26,6 +27,9 @@ interface Props {
   onBuyUpgrade: (upgradeId: string) => void;
   onSetDrinkPrice: (drinkId: string, price: number | null) => void;
   onOrderCase: (drinkId: string) => void;
+  onSetSpecial: (drinkId: string | null) => void;
+  onCreateSignature: (name: string, baseDrinkIds: [string, string]) => void;
+  onDeleteSignature: (id: string) => void;
 }
 
 const MIN_PRICE = 1;
@@ -49,7 +53,11 @@ export function PlanningPanel({
   onBuyUpgrade,
   onSetDrinkPrice,
   onOrderCase,
+  onSetSpecial,
+  onCreateSignature,
+  onDeleteSignature,
 }: Props) {
+  const recipeUnlocked = state.ownedUpgradeIds.includes('cocktail_shaker');
   const hiredArchetypeIds = new Set(state.hiredStaff.map((h) => h.archetypeId));
   const availableHires = catalog.staffArchetypes.filter((a) => !hiredArchetypeIds.has(a.id));
   const ownedUpgrades = catalog.upgrades.filter((u) => state.ownedUpgradeIds.includes(u.id));
@@ -142,6 +150,43 @@ export function PlanningPanel({
         </ul>
       </div>
 
+      {recipeUnlocked && (
+        <div className="section">
+          <h2>Recipe book</h2>
+          <RecipeBook
+            signatures={state.signatures}
+            onCreate={onCreateSignature}
+            onDelete={onDeleteSignature}
+          />
+        </div>
+      )}
+
+      <div className="section">
+        <h2>Tonight's special</h2>
+        <div className="special-pills" role="radiogroup" aria-label="Nightly special">
+          <button
+            type="button"
+            className={`special-pill ${state.nightlySpecialDrinkId === null ? 'active' : ''}`}
+            onClick={() => onSetSpecial(null)}
+            aria-pressed={state.nightlySpecialDrinkId === null}
+          >
+            None
+          </button>
+          {catalog.drinks.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className={`special-pill ${state.nightlySpecialDrinkId === d.id ? 'active' : ''}`}
+              onClick={() => onSetSpecial(d.id)}
+              aria-pressed={state.nightlySpecialDrinkId === d.id}
+            >
+              {d.displayName}
+            </button>
+          ))}
+        </div>
+        <p className="special-hint">+20% pick weight on customers who like it · +1 rep per serve.</p>
+      </div>
+
       <div className="section">
         <h2>Tonight's menu</h2>
         <ul className="menu-list">
@@ -217,6 +262,7 @@ function HiredCard({ hired, archetype, station, onAssign, onFire }: HiredCardPro
           <button className="fire-btn" onClick={onFire} aria-label={`Fire ${hired.displayName}`}>×</button>
         </div>
         <div className="staff-role">{archetype?.role ?? '?'} · ${hired.wagePerDay}/day</div>
+        <MoodMeter mood={hired.mood} />
         {archetype && <TraitChips traits={archetype.traits} />}
         <div className="station-toggle" role="group" aria-label="Assign station">
           {STATIONS.map((s) => (
@@ -231,6 +277,21 @@ function HiredCard({ hired, archetype, station, onAssign, onFire }: HiredCardPro
         </div>
       </div>
     </li>
+  );
+}
+
+function MoodMeter({ mood }: { mood: number }) {
+  const pct = Math.max(0, Math.min(100, mood));
+  const tone = mood < 30 ? 'bad' : mood > 80 ? 'good' : 'neutral';
+  const label = mood < 30 ? 'rough' : mood > 80 ? 'dialed' : '';
+  return (
+    <div className="mood-row">
+      <span className="mood-label">Mood</span>
+      <div className={`mood-meter ${tone}`} aria-label={`Mood ${mood}`}>
+        <div className="mood-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="mood-value">{mood}{label && ` · ${label}`}</span>
+    </div>
   );
 }
 

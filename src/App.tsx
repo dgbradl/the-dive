@@ -3,7 +3,7 @@ import { catalog } from './game/content';
 import { evaluateMilestoneFor } from './game/milestones';
 import { applyReport, runShift } from './game/simulator';
 import { clearSave, load, newGame, nextDaySeed, save } from './game/save';
-import { defaultShiftConfig, Station, StaffRole, type GameState, type ShiftReport } from './game/types';
+import { defaultShiftConfig, Station, StaffRole, type GameState, type ShiftReport, type Signature } from './game/types';
 import { PlanningPanel } from './ui/PlanningPanel';
 import { ShiftPanel } from './ui/ShiftPanel';
 import { ResultsPanel } from './ui/ResultsPanel';
@@ -130,6 +130,35 @@ export function App() {
     });
   }, []);
 
+  const createSignature = useCallback((name: string, baseDrinkIds: [string, string]) => {
+    setState((s) => {
+      const trimmed = name.trim().slice(0, 24);
+      if (!trimmed) return s;
+      const a = catalog.drinks.find((d) => d.id === baseDrinkIds[0]);
+      const b = catalog.drinks.find((d) => d.id === baseDrinkIds[1]);
+      if (!a || !b) return s;
+      const id = `sig_${Date.now().toString(36)}`;
+      const suggestedPrice = Math.max(2, Math.round(((a.suggestedPrice + b.suggestedPrice) / 2) * 1.4));
+      const costToMake = a.costToMake + b.costToMake; // narrative — actual stock cost is the two bases
+      const next: Signature = {
+        id,
+        displayName: trimmed,
+        baseDrinkIds,
+        suggestedPrice,
+        costToMake,
+      };
+      return { ...s, signatures: [...s.signatures, next] };
+    });
+  }, []);
+
+  const deleteSignature = useCallback((id: string) => {
+    setState((s) => ({ ...s, signatures: s.signatures.filter((sig) => sig.id !== id) }));
+  }, []);
+
+  const setNightlySpecial = useCallback((drinkId: string | null) => {
+    setState((s) => ({ ...s, nightlySpecialDrinkId: drinkId }));
+  }, []);
+
   const orderCase = useCallback((drinkId: string) => {
     setState((s) => {
       const drink = catalog.drinks.find((d) => d.id === drinkId);
@@ -164,6 +193,9 @@ export function App() {
           onBuyUpgrade={buyUpgrade}
           onSetDrinkPrice={setDrinkPrice}
           onOrderCase={orderCase}
+          onSetSpecial={setNightlySpecial}
+          onCreateSignature={createSignature}
+          onDeleteSignature={deleteSignature}
         />
       )}
       {phase === 'shift' && lastReport && (

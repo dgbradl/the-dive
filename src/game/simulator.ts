@@ -14,9 +14,20 @@ import {
   type ShiftEntry,
   type ShiftPhase,
   type ShiftReport,
+  type Signature,
   type StaffArchetype,
   type StaffTrait,
 } from './types';
+
+/** Bonus multiplied against the base tip when serving a signature. */
+const SIGNATURE_TIP_BONUS = 0.20;
+/** Flat rep bonus added to a signature serve's repDelta. */
+const SIGNATURE_REP_BONUS = 2;
+
+/** Result of resolving a customer's choice — either a base drink or a signature. */
+type ServedDrink =
+  | { kind: 'base'; drink: Drink }
+  | { kind: 'signature'; sig: Signature; baseA: Drink; baseB: Drink };
 
 const HEAT_DECISION_THRESHOLD = 2.0;
 const DOOR_DECISION_THRESHOLD = 3.5;
@@ -82,13 +93,45 @@ const TRAIT = {
   // Floor-only.
   klutzTrayChance: 0.08,       // per Klutz on floor, per serve: chance of a tray drop
   // Customer-facing (bar + floor).
-  charmingTipMult: 1.30,       // per Charming
-  surlyTipMult: 0.70,          // per Surly
+  charmingTipBonus: 0.30,      // per Charming: +30% tip when neutral mood
+  surlyTipPenalty: 0.30,       // per Surly: -30% tip when neutral mood
   chattyPatienceBonus: 1,      // per Chatty
   chattyPatienceCap: 3,        // total max bonus across all Chatty
   // Door-only.
   doorCharmDefuseChance: 0.6,  // per Charming on door: chance to fully defuse a Crisis
 };
+
+/** Mood drift magnitudes — applied in applyReport. */
+const MOOD = {
+  busyServeQuick: 0.4,    // +mood per serve for Quick at bar
+  busyServeLazy: -0.5,    // -mood per serve for Lazy at bar
+  walkoutAtStation: -1.5, // every staffer at the affected station gets yelled at
+  mishapByStaff: -0.5,    // per mishap a specific staffer caused
+  driftToward: 60,        // baseline mood
+  passiveDrift: 1,        // pull toward baseline if no events
+  perShiftClampMag: 12,   // |total drift| per shift
+  highMoodThreshold: 80,
+  lowMoodThreshold: 30,
+};
+
+/**
+ * Returns a multiplier for a trait's magnitude based on the staffer's mood.
+ *
+ * - Below 30 mood ("rough"):  beneficial traits dampened, harmful traits amplified.
+ * - Between 30 and 80 mood:    no change (neutral band).
+ * - Above 80 mood ("dialed"):  beneficial traits boosted, harmful traits dampened.
+ */
+function moodScale(mood: number, kind: 'bonus' | 'penalty'): number {
+  if (mood < MOOD.lowMoodThreshold) {
+    const t = (MOOD.lowMoodThreshold - mood) / MOOD.lowMoodThreshold; // 0..1
+    return kind === 'bonus' ? 1 - 0.5 * t : 1 + 0.5 * t;
+  }
+  if (mood > MOOD.highMoodThreshold) {
+    const t = (mood - MOOD.highMoodThreshold) / 20; // 0..1
+    return kind === 'bonus' ? 1 + 0.3 * t : 1 - 0.3 * t;
+  }
+  return 1;
+}
 
 interface WaitingCustomer {
   archetype: CustomerArchetype;
@@ -128,13 +171,57 @@ function withTrait(staff: OnShift[], trait: StaffTrait): OnShift[] {
   return staff.filter((s) => s.archetype.traits.includes(trait));
 }
 
-function pickDrinkForCustomer(arch: CustomerArchetype, catalog: GameCatalog, rng: Rng): Drink | null {
-  if (arch.preferredDrinkIds.length > 0) {
-    const id = rng.pick(arch.preferredDrinkIds);
-    const d = catalog.drinks.find((x) => x.id === id);
-    if (d) return d;
+/** +20% pick weight if the special is in the customer's preferred list. */
+const SPECIAL_PICK_BIAS = 0.20;
+
+/**
+ * Resolve what the customer wants tonight. Considers:
+ *  - their archetype's preferred drinks,
+ *  - any signature drinks whose bases overlap with those preferences,
+ *  - the nightly special bias.
+ *
+ * Returns a base-drink or signature-drink wrapper so the serve loop can
+ * branch on inventory rules (signatures consume one unit of EACH base).
+ */
+function pickServedDrink(
+  arch: CustomerArchetype,
+  catalog: GameCatalog,
+  signatures: Signature[],
+  rng: Rng,
+  specialDrinkId: string | null,
+): ServedDrink | null {
+  // Signatures whose bases overlap any of the customer's preferences.
+  const matchingSigs = signatures.filter((s) =>
+    arch.preferredDrinkIds.some((id) => s.baseDrinkIds.includes(id)),
+  );
+  const candidateIds = [...arch.preferredDrinkIds, ...matchingSigs.map((s) => s.id)];
+
+  // Resolve a drink id to either a base drink or a signature record.
+  const resolve = (id: string): ServedDrink | null => {
+    const base = catalog.drinks.find((d) => d.id === id);
+    if (base) return { kind: 'base', drink: base };
+    const sig = signatures.find((s) => s.id === id);
+    if (sig) {
+      const baseA = catalog.drinks.find((d) => d.id === sig.baseDrinkIds[0]);
+      const baseB = catalog.drinks.find((d) => d.id === sig.baseDrinkIds[1]);
+      if (baseA && baseB) return { kind: 'signature', sig, baseA, baseB };
+    }
+    return null;
+  };
+
+  // Special bias.
+  if (specialDrinkId && candidateIds.includes(specialDrinkId) && rng.next() < SPECIAL_PICK_BIAS) {
+    const r = resolve(specialDrinkId);
+    if (r) return r;
   }
-  return catalog.drinks.length > 0 ? rng.pick(catalog.drinks) : null;
+  if (candidateIds.length > 0) {
+    const r = resolve(rng.pick(candidateIds));
+    if (r) return r;
+  }
+  if (catalog.drinks.length > 0) {
+    return { kind: 'base', drink: rng.pick(catalog.drinks) };
+  }
+  return null;
 }
 
 function resolvePrice(drink: Drink | null, state: GameState): number {
@@ -174,6 +261,15 @@ export function runShift(
     decisions: [],
     rentPaid: 0,
     stockUsed: {},
+    staffMoodDelta: {},
+  };
+
+  // Per-staff mood drift accumulator; pushed onto the report at end of shift.
+  const moodDelta = new Map<string, number>();
+  const moodTouched = new Set<string>();
+  const bumpMood = (instanceId: string, delta: number) => {
+    moodDelta.set(instanceId, (moodDelta.get(instanceId) ?? 0) + delta);
+    moodTouched.add(instanceId);
   };
 
   // Local copy of inventory mutated through the shift; report.stockUsed
@@ -346,10 +442,29 @@ export function runShift(
 
   // Customer-facing stations are where charm/surl/chat traits fire.
   const customerFacing: OnShift[] = [...stations.bar, ...stations.floor];
-  const charmingCount = withTrait(customerFacing, 'Charming').length;
-  const surlyCount = withTrait(customerFacing, 'Surly').length;
-  const chattyCount = withTrait(customerFacing, 'Chatty').length;
-  const patienceBonus = Math.min(chattyCount * TRAIT.chattyPatienceBonus, TRAIT.chattyPatienceCap);
+  const charmingFacing = withTrait(customerFacing, 'Charming');
+  const surlyFacing = withTrait(customerFacing, 'Surly');
+  const chattyFacing = withTrait(customerFacing, 'Chatty');
+
+  // Per-staff mood-aware patience bonus, capped across all Chatty.
+  const rawPatienceBonus = chattyFacing.reduce(
+    (sum, s) => sum + TRAIT.chattyPatienceBonus * moodScale(s.hired.mood, 'bonus'),
+    0,
+  );
+  const patienceBonus = Math.round(Math.min(rawPatienceBonus, TRAIT.chattyPatienceCap));
+
+  // Per-staff mood-aware tip multiplier — each Charming/Surly contributes
+  // multiplicatively, with magnitude scaled by their personal mood.
+  const moodAwareTipMult = (() => {
+    let mult = 1;
+    for (const s of charmingFacing) {
+      mult *= 1 + TRAIT.charmingTipBonus * moodScale(s.hired.mood, 'bonus');
+    }
+    for (const s of surlyFacing) {
+      mult *= 1 - TRAIT.surlyTipPenalty * moodScale(s.hired.mood, 'penalty');
+    }
+    return mult;
+  })();
 
   // Bar-only.
   const quickAtBar = withTrait(stations.bar, 'Quick');
@@ -450,8 +565,9 @@ export function runShift(
       if (rng.next() < speedBonus * 0.5) capacity += 1;
     }
     // Quick: per-tick chance of +1 capacity per Quick at bar.
-    for (let i = 0; i < quickAtBar.length; i++) {
-      if (rng.next() < TRAIT.quickCapacityChance) capacity += 1;
+    for (const q of quickAtBar) {
+      const chance = TRAIT.quickCapacityChance * moodScale(q.hired.mood, 'bonus');
+      if (rng.next() < chance) capacity += 1;
     }
     // Lazy: scheduled smoke break this tick.
     const lazyThisTick = lazyTicks.get(tick);
@@ -472,18 +588,33 @@ export function runShift(
       const c = waiting.shift()!;
       capacity--;
 
-      const drink = pickDrinkForCustomer(c.archetype, catalog, rng);
+      const order = pickServedDrink(
+        c.archetype,
+        catalog,
+        state.signatures,
+        rng,
+        state.nightlySpecialDrinkId,
+      );
+      const customerName = c.regular ? c.regular.displayName : c.archetype.displayName;
 
-      // Stockout? They walk. Cost is already sunk in this morning's case order
-      // so nothing else to deduct — but the walkout still hurts rep + heat.
-      if (drink && (runtimeStock[drink.id] ?? 0) <= 0) {
-        const customerName = c.regular ? c.regular.displayName : c.archetype.displayName;
+      // Stockout check — signatures need both bases; bases need themselves.
+      // The customer walks if any required ingredient is at zero.
+      const stockoutOn = (() => {
+        if (!order) return null;
+        if (order.kind === 'base') {
+          return (runtimeStock[order.drink.id] ?? 0) <= 0 ? order.drink : null;
+        }
+        if ((runtimeStock[order.baseA.id] ?? 0) <= 0) return order.baseA;
+        if ((runtimeStock[order.baseB.id] ?? 0) <= 0) return order.baseB;
+        return null;
+      })();
+      if (stockoutOn) {
         report.customersLost++;
         heat = clampHeat(heat + HEAT.perWalkout);
         addE({
           tick,
           kind: 'Walkout',
-          text: `${customerName} wanted a ${drink.displayName} — out of stock. Walks.`,
+          text: `${customerName} wanted a ${stockoutOn.displayName} — out of stock. Walks.`,
           cashDelta: 0,
           repDelta: -Math.ceil(config.repPerWalkout),
           customerArchetypeId: c.archetype.id,
@@ -493,37 +624,52 @@ export function runShift(
         continue;
       }
 
-      if (drink) {
-        runtimeStock[drink.id] = (runtimeStock[drink.id] ?? 0) - 1;
-        report.stockUsed[drink.id] = (report.stockUsed[drink.id] ?? 0) + 1;
+      // Decrement stock for whatever was poured.
+      if (order && order.kind === 'base') {
+        runtimeStock[order.drink.id] = (runtimeStock[order.drink.id] ?? 0) - 1;
+        report.stockUsed[order.drink.id] = (report.stockUsed[order.drink.id] ?? 0) + 1;
+      } else if (order && order.kind === 'signature') {
+        for (const base of [order.baseA, order.baseB]) {
+          runtimeStock[base.id] = (runtimeStock[base.id] ?? 0) - 1;
+          report.stockUsed[base.id] = (report.stockUsed[base.id] ?? 0) + 1;
+        }
       }
 
-      const price = resolvePrice(drink, state);
-      // Inventory cost is paid at morning order time, not per pour.
-      const cost = 0;
+      // Pricing — signatures use their own suggestedPrice; bases respect overrides.
+      const isSignature = order?.kind === 'signature';
+      const drinkForPricing: Drink | null = order
+        ? order.kind === 'base'
+          ? order.drink
+          : { ...order.sig, prepTicks: 2, quality: 0.85, caseSize: 1, casePrice: 0 }
+        : null;
+      const price = resolvePrice(drinkForPricing, state);
+
       const baseTip = Math.round(price * c.archetype.tipMultiplier);
       const charmFactor =
         floorCount > 0
           ? Math.min(1.5, 1 + floorCharm / Math.max(1, floorCount))
           : 1;
-      // Trait modifiers stack multiplicatively: each Charming +10%, each Surly -30%.
-      const tipMult =
-        charmFactor *
-        Math.pow(TRAIT.charmingTipMult, charmingCount) *
-        Math.pow(TRAIT.surlyTipMult, surlyCount);
+      const tipMult = charmFactor * moodAwareTipMult * (isSignature ? 1 + SIGNATURE_TIP_BONUS : 1);
       const tip = Math.max(0, Math.round((baseTip + passiveTipBonus) * tipMult));
 
-      const net = price - cost + tip + config.atmosphereCashPerCustomer;
-      const rep = Math.round(c.archetype.repInfluence * config.repPerSatisfied);
+      const net = price + tip + config.atmosphereCashPerCustomer;
+      const baseRep = Math.round(c.archetype.repInfluence * config.repPerSatisfied);
+      const drinkId = order?.kind === 'base' ? order.drink.id : order?.kind === 'signature' ? order.sig.id : null;
+      const isSpecial = drinkId !== null && drinkId === state.nightlySpecialDrinkId;
+      const rep = baseRep + (isSpecial ? 1 : 0) + (isSignature ? SIGNATURE_REP_BONUS : 0);
 
-      const customerName = c.regular ? c.regular.displayName : c.archetype.displayName;
+      const drinkName =
+        order?.kind === 'base' ? order.drink.displayName
+        : order?.kind === 'signature' ? order.sig.displayName
+        : null;
+
       report.customersServed++;
       heat = clampHeat(heat + HEAT.perServe);
       addE({
         tick,
         kind: 'Served',
-        text: drink
-          ? `Served ${customerName} a ${drink.displayName} (+$${net}, tip $${tip})`
+        text: drinkName
+          ? `Served ${customerName} a ${drinkName} (+$${net}, tip $${tip})`
           : `Served ${customerName} (+$${net})`,
         cashDelta: net,
         repDelta: rep,
@@ -554,7 +700,8 @@ export function runShift(
 
       // Klutz: per Klutz on floor, chance to drop a tray after this serve.
       for (const klutz of klutzAtFloor) {
-        if (rng.next() < TRAIT.klutzTrayChance) {
+        const chance = TRAIT.klutzTrayChance * moodScale(klutz.hired.mood, 'penalty');
+        if (rng.next() < chance) {
           const dropCost = -rng.intBetween(2, 6);
           heat = clampHeat(heat + HEAT.perMishap * 0.5);
           report.damages.push({ tick, item: 'spilled tray', cost: -dropCost });
@@ -673,6 +820,34 @@ export function runShift(
   }
 
   report.heatAtClose = heat;
+
+  // ---- Mood drift bookkeeping ----
+  // Walk the report once, accumulate per-staff drift.
+  const customerFacingIds = [...stations.bar, ...stations.floor].map((s) => s.hired.instanceId);
+  const quickBarIds = quickAtBar.map((s) => s.hired.instanceId);
+  const lazyBarIds = lazyAtBar.map((s) => s.hired.instanceId);
+  for (const e of report.entries) {
+    if (e.kind === 'Served') {
+      for (const id of quickBarIds) bumpMood(id, MOOD.busyServeQuick);
+      for (const id of lazyBarIds) bumpMood(id, MOOD.busyServeLazy);
+    } else if (e.kind === 'Walkout') {
+      for (const id of customerFacingIds) bumpMood(id, MOOD.walkoutAtStation);
+    } else if (e.kind === 'Mishap' && e.staffInstanceId) {
+      bumpMood(e.staffInstanceId, MOOD.mishapByStaff);
+    }
+  }
+  // Passive drift toward baseline for staff nothing touched tonight.
+  for (const h of state.hiredStaff) {
+    if (moodTouched.has(h.instanceId)) continue;
+    if (h.mood < MOOD.driftToward) moodDelta.set(h.instanceId, MOOD.passiveDrift);
+    else if (h.mood > MOOD.driftToward) moodDelta.set(h.instanceId, -MOOD.passiveDrift);
+  }
+  // Clamp magnitude of any single shift's drift, write to the report.
+  for (const [id, delta] of moodDelta) {
+    const clamped = Math.max(-MOOD.perShiftClampMag, Math.min(MOOD.perShiftClampMag, delta));
+    if (clamped !== 0) report.staffMoodDelta[id] = clamped;
+  }
+
   return report;
 }
 
@@ -713,16 +888,25 @@ export function applyReport(state: GameState, report: ShiftReport): { state: Gam
     updatedStock[id] = Math.max(0, (updatedStock[id] ?? 0) - used);
   }
 
+  // Mood drift per staffer (computed during runShift, stashed on report).
+  const updatedStaff = state.hiredStaff.map((h) => {
+    const delta = report.staffMoodDelta[h.instanceId] ?? 0;
+    if (delta === 0) return h;
+    return { ...h, mood: Math.max(0, Math.min(100, Math.round(h.mood + delta))) };
+  });
+
   const newState: GameState = {
     ...state,
     cash: state.cash + report.cashDelta - wages - rent,
     reputation: Math.max(0, Math.min(100, state.reputation + report.repDelta)),
+    hiredStaff: updatedStaff,
     regulars: updatedRegulars,
     heat: clampHeat(report.heatAtClose - HEAT.overnightDecay),
     drinkStock: updatedStock,
   };
   return { state: newState, report: annotated };
 }
+
 
 /**
  * Override the player's choice at a pending decision. Mutates the report

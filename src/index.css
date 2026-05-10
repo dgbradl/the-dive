@@ -319,6 +319,158 @@ html, body, #root {
 
 .empty-hint { font-family: var(--font-note); color: var(--text-dim); font-size: 14px; }
 
+/* Staff mood */
+.mood-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mood-label {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 0.10em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.mood-meter {
+  width: 96px;
+  height: 8px;
+  background: var(--tavern-pitch);
+  box-shadow: var(--etch-1);
+  position: relative;
+  flex-shrink: 0;
+}
+.mood-meter .mood-fill {
+  height: 100%;
+  transition: width 220ms steps(8, end);
+}
+.mood-meter.good .mood-fill    { background: var(--stain-mint); }
+.mood-meter.bad .mood-fill     { background: var(--stain-cherry); }
+.mood-meter.neutral .mood-fill { background: var(--tavern-amber); }
+.mood-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+/* Recipe book */
+.recipe-book { display: flex; flex-direction: column; gap: 12px; }
+.recipe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-2);
+  box-shadow: var(--etch-1);
+}
+.recipe-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 0; }
+.recipe-field-label {
+  font-family: var(--font-pixel);
+  font-size: 8px;
+  letter-spacing: 0.10em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.recipe-field input,
+.recipe-field select {
+  font-family: var(--font-body);
+  font-size: 16px;
+  padding: 6px 8px;
+  background: var(--tavern-pitch);
+  color: var(--text);
+  border: 1px solid var(--panel-2);
+  border-radius: 0;
+}
+.recipe-bases { display: flex; align-items: flex-end; gap: 8px; }
+.recipe-plus {
+  font-family: var(--font-pixel);
+  font-size: 14px;
+  color: var(--accent);
+  padding-bottom: 8px;
+}
+.recipe-save {
+  font-family: var(--font-pixel);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: var(--tavern-pitch);
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: var(--drop-1);
+}
+.recipe-save:active { transform: translate(1px, 1px); box-shadow: var(--drop-press); }
+.recipe-save:disabled {
+  background: var(--panel-2);
+  color: var(--text-dim);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.recipe-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+.recipe-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-2);
+  box-shadow: var(--etch-1);
+}
+.recipe-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.recipe-name { font-family: var(--font-pixel); font-size: 11px; color: var(--text); letter-spacing: 0.04em; text-transform: uppercase; }
+.recipe-recipe { font-family: var(--font-note); font-size: 13px; color: var(--text-dim); }
+.recipe-delete {
+  background: transparent;
+  border: 1px solid var(--panel-2);
+  color: var(--text-dim);
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 0;
+  cursor: pointer;
+}
+.recipe-delete:hover { color: var(--bad); border-color: var(--bad); }
+
+/* Tonight's special — pill selector */
+.special-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.special-pill {
+  font-family: var(--font-pixel);
+  font-size: 9px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--text-dim);
+  border: 1px solid var(--panel-2);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: var(--drop-press);
+}
+.special-pill:hover { color: var(--text); border-color: var(--accent); }
+.special-pill.active {
+  background: var(--accent);
+  color: var(--tavern-pitch);
+  border-color: var(--accent);
+  box-shadow: var(--drop-1);
+}
+.special-hint {
+  margin: 8px 0 0;
+  font-family: var(--font-note);
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 /* Morning order — drink stock */
 .stock-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .stock-row {

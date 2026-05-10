@@ -1,7 +1,8 @@
 import { startingRegulars } from './content';
 import { Station, type GameState } from './types';
 
-const STORAGE_KEY = 'bargame.save.v2';
+const STORAGE_KEY = 'bargame.save.v3';
+const STORAGE_KEY_V2 = 'bargame.save.v2';
 const STORAGE_KEY_V1 = 'bargame.save.v1';
 
 export function newGame(): GameState {
@@ -29,6 +30,7 @@ export function newGame(): GameState {
     heat: 0,
     rentPerDay: 40,
     drinkStock: { pbr: 12, whiskey_sour: 8, house_special: 6 },
+    signatures: [],
   };
 }
 
@@ -43,17 +45,24 @@ export function migrate(raw: unknown): GameState {
     drinkStock: (s.drinkStock && typeof s.drinkStock === 'object')
       ? s.drinkStock
       : { pbr: 12, whiskey_sour: 8, house_special: 6 },
+    signatures: Array.isArray(s.signatures) ? s.signatures : [],
   } as GameState;
 }
 
 export function load(): GameState | null {
   try {
-    const v2 = localStorage.getItem(STORAGE_KEY);
-    if (v2) return migrate(JSON.parse(v2));
+    const v3 = localStorage.getItem(STORAGE_KEY);
+    if (v3) return migrate(JSON.parse(v3));
+    const v2 = localStorage.getItem(STORAGE_KEY_V2);
+    if (v2) {
+      const upgraded = migrate(JSON.parse(v2));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(upgraded));
+      localStorage.removeItem(STORAGE_KEY_V2);
+      return upgraded;
+    }
     const v1 = localStorage.getItem(STORAGE_KEY_V1);
     if (v1) {
       const upgraded = migrate(JSON.parse(v1));
-      // Migrate forward and clear the old slot.
       localStorage.setItem(STORAGE_KEY, JSON.stringify(upgraded));
       localStorage.removeItem(STORAGE_KEY_V1);
       return upgraded;

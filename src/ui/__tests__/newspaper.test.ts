@@ -26,6 +26,7 @@ function emptyReport(day: number): ShiftReport {
     decisions: [],
     rentPaid: 0,
     stockUsed: {},
+    staffMoodDelta: {},
   };
 }
 

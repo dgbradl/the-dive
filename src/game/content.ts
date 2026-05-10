@@ -256,6 +256,15 @@ export const upgrades: Upgrade[] = [
     tipBonus: 0,
     flavorText: 'People can now find the place from the street.',
   },
+  {
+    id: 'cocktail_shaker',
+    displayName: 'Cocktail Shaker',
+    cost: 250,
+    spawnRateMultiplier: 1.0,
+    repPerShift: 0,
+    tipBonus: 0,
+    flavorText: 'Unlocks the recipe book. Marv mixes signatures now.',
+  },
 ];
 
 export const catalog: GameCatalog = {

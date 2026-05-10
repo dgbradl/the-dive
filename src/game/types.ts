@@ -118,6 +118,21 @@ export interface HiredStaff {
 }
 
 /**
+ * Player-authored signature drink. Composed of two base drinks; serving
+ * consumes 1 unit from each base's stock (the cocktail metaphor).
+ * Awards a small rep + tip bonus on serve.
+ */
+export interface Signature {
+  id: string;
+  displayName: string;
+  baseDrinkIds: [string, string];
+  /** Suggested price (avg of bases × 1.4 markup, rounded). */
+  suggestedPrice: number;
+  /** Display only — not used for cost since signatures consume bases. */
+  costToMake: number;
+}
+
+/**
  * Named recurring customer. Same archetype as one of the
  * `CustomerArchetype`s, but persists across days with a loyalty score.
  * When loyalty < 0 the regular doesn't spawn until they recover.
@@ -158,6 +173,8 @@ export interface GameState {
   rentPerDay: number;
   /** On-hand inventory by drink id; runs out → walkouts. */
   drinkStock: Record<string, number>;
+  /** Player-authored signature drinks (unlocked by Cocktail Shaker). */
+  signatures: Signature[];
 }
 
 /** A weekly milestone — the lease threats and rep gates that pressure the run. */
@@ -286,4 +303,6 @@ export interface ShiftReport {
   rentPaid: number;
   /** Units consumed tonight by drink id; subtracted from state.drinkStock. */
   stockUsed: Record<string, number>;
+  /** Mood delta per staff `instanceId` to apply in `applyReport`. */
+  staffMoodDelta: Record<string, number>;
 }
