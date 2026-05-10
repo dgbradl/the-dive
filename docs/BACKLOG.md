@@ -166,6 +166,18 @@ week-long arc rather than a 3-min run.
   → 204 KB; planning + game-over screens load instantly.
 - ✅ **Slice 17 — Animated transitions (C8).** 700 ms dolly overlay
   on planning → shift; 500 ms lights-up cut on shift → results.
+- ✅ **Slice 18 — Achievements (D3).** Seven starter unlocks
+  (First Night, Crowded House, Lease Survivor, Big Tipper, Stockout
+  King, Mixologist, Spotless). Persisted across runs in
+  `careerStats.unlockedAchievements`. Newly-unlocked banner on the
+  results screen; N / M progress on the CAREER LEDGER.
+- ✅ **Slice 19 — Settings sheet (E4).** Modal opened from a gear
+  button in the planning header: Sound toggle, Volume slider (with
+  audio.ts volume multiplier), Reset save (confirm-gated), credits.
+- ✅ **Slice 20 — PWA icons + branding (E2).** Manifest pointed at
+  missing `icon-192.png` / `icon-512.png`; replaced with the
+  existing `favicon.svg` (sizes: 'any', maskable). Renamed app:
+  BarGame → The Dive; theme color updated to tavern-soot.
 
 ## Suggested first 5 slices
 
@@ -256,17 +268,19 @@ GameOverPanel with runsPlayed / bestRunDays / bestRunCash /
 biggestTip / busiestNight / lifetimeDays. Slice 12.
 **D2.** ✅ Multiple starting scenarios. Inherited Dive / Bought a Wreck /
 Pop-Up Bar. Picker on game-over screen. Slice 15.
-**D3.** Achievement-style milestones. "Survive a health inspector with no
-bouncer", "Run a 100% college-kid night", etc.
+**D3.** ✅ Achievement-style milestones. Seven authored, unlocked-once
+list persisted on `careerStats.unlockedAchievements`. Slice 18.
 **D4.** Daily seed challenge. Same seed for everyone today; share your
 final cash. Stretch — needs a server or just a "share text" copy button.
 
 ### E. Tech & infra
-**E2.** Real PWA icons. 192 + 512 PNGs (currently the manifest references
-files that don't exist).
-**E3.** ✅ Save migrations. `STORAGE_KEY` v1 → v2 with a forward
-migrator that synthesizes new fields on legacy saves. Slice 7.
-**E4.** Settings panel. Mute, music volume, reset save, credits.
+**E2.** ✅ Real PWA icons. Manifest now references the existing
+`favicon.svg` with `sizes: 'any'` + `purpose: 'any maskable'`. App
+renamed BarGame → The Dive. Slice 20.
+**E3.** ✅ Save migrations. `STORAGE_KEY` v1 → v2 → v3 with forward
+migrators that synthesize new fields on legacy saves. Slices 7 + 11a.
+**E4.** ✅ Settings panel. Sheet opened from a gear in the planning
+header: sound toggle, volume slider, reset save, credits. Slice 19.
 **E5.** ✅ Bundle splitting. Phaser dynamic-imports on first ShiftPanel
 mount. Main bundle 1.65 MB → 204 KB. Slice 16.
 **E6.** Smoke tests for UI. Render `PlanningPanel`, click "Open the
@@ -277,14 +291,13 @@ doors", assert phase transitions. JSDOM + React Testing Library.
 **A + B (depth):** all done.
 **Polish (C):** C4 (dartboard / pool table remain), C7 walk-cycle
 sprites (needs art).
-**Meta (D):** D3 achievements, D4 daily seed challenge.
-**Tech (E):** E2 PWA icons, E4 settings panel, E6 UI smoke tests.
+**Meta (D):** D4 daily seed challenge.
+**Tech (E):** E6 UI smoke tests.
 
 ## Critical files for the open items
 
 - `src/ui/PhaserBarScene.ts` — C4, C7
-- `vite.config.ts` — E2
-- new `Settings.tsx` — E4
+- new `*.test.tsx` (RTL) — E6
 
 ## Patterns to lean on
 - `runShift(state, config, catalog, seed)` in `src/game/simulator.ts` — pure
@@ -318,10 +331,13 @@ sprites (needs art).
 
 ## Highest-leverage next moves
 
-1. **D3 Achievement-style milestones.** "Survive a health inspector
-   with no bouncer", "Run a 100% college-kid night", etc. Surface
-   them on the career ledger.
-2. **E4 Settings panel.** Mute, music volume, reset save, credits.
-   Pulls the existing mute button into a proper menu.
-3. **E2 Real PWA icons.** Manifest references `icon-192.png` /
-   `icon-512.png` that don't exist. Asset-only fix.
+1. **C4 (remaining) — Phaser dartboard + pool table.** Two more
+   floor objects to fill out the back of the bar. Same procedural-
+   geometry pattern as the jukebox.
+2. **D4 Daily seed challenge.** Same seed for everyone today; share
+   your final cash via a "share text" copy button on the receipt.
+   Stretch — the seed mechanism is already deterministic, all this
+   needs is a date-derived seed and a copy-to-clipboard button.
+3. **E6 UI smoke tests.** Render PlanningPanel, click "Open the
+   doors", assert phase transitions via JSDOM + React Testing
+   Library. Catches regressions in the React shell.
