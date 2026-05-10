@@ -128,6 +128,7 @@ function fixture(spec: StaffSpec[]): { state: GameState; catalog: GameCatalog } 
     heat: 0,
     rentPerDay: 0,
     drinkStock: { pbr: 999, whiskey_sour: 999, house_special: 999 },
+    signatures: [],
   };
   return { state, catalog: testCatalog };
 }

@@ -3,6 +3,7 @@ import { Station } from '../game/types';
 import { catalog } from '../game/content';
 import { upcomingMilestone } from '../game/milestones';
 import { MuteButton } from './MuteButton';
+import { RecipeBook } from './RecipeBook';
 
 const STAFF_SPRITES: Record<string, string> = {
   marv_bartender: '/sprites/marv.png',
@@ -27,6 +28,8 @@ interface Props {
   onSetDrinkPrice: (drinkId: string, price: number | null) => void;
   onOrderCase: (drinkId: string) => void;
   onSetSpecial: (drinkId: string | null) => void;
+  onCreateSignature: (name: string, baseDrinkIds: [string, string]) => void;
+  onDeleteSignature: (id: string) => void;
 }
 
 const MIN_PRICE = 1;
@@ -51,7 +54,10 @@ export function PlanningPanel({
   onSetDrinkPrice,
   onOrderCase,
   onSetSpecial,
+  onCreateSignature,
+  onDeleteSignature,
 }: Props) {
+  const recipeUnlocked = state.ownedUpgradeIds.includes('cocktail_shaker');
   const hiredArchetypeIds = new Set(state.hiredStaff.map((h) => h.archetypeId));
   const availableHires = catalog.staffArchetypes.filter((a) => !hiredArchetypeIds.has(a.id));
   const ownedUpgrades = catalog.upgrades.filter((u) => state.ownedUpgradeIds.includes(u.id));
@@ -143,6 +149,17 @@ export function PlanningPanel({
           ))}
         </ul>
       </div>
+
+      {recipeUnlocked && (
+        <div className="section">
+          <h2>Recipe book</h2>
+          <RecipeBook
+            signatures={state.signatures}
+            onCreate={onCreateSignature}
+            onDelete={onDeleteSignature}
+          />
+        </div>
+      )}
 
       <div className="section">
         <h2>Tonight's special</h2>
