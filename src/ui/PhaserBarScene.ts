@@ -84,6 +84,7 @@ export class BarScene extends Phaser.Scene {
   /** Customers who got served and settled at a table — kept alive on screen. */
   private tableSeated: (CustomerSprite & { tableSeat: number })[] = [];
   private bannerText?: Phaser.GameObjects.Text;
+  private jukebox?: Phaser.GameObjects.Container;
   private viewW = 0;
   private viewH = 0;
 
@@ -173,6 +174,11 @@ export class BarScene extends Phaser.Scene {
       this.add.ellipse(tx, ty - 2, this.viewW * 0.16, 12, 0x4a3220);
     }
 
+    // Jukebox between the tables — small upright cabinet with a flickering
+    // amber screen and twin speaker grilles. Wrapped in a Container so we
+    // can shake the whole thing on a "jukebox eats a quarter" event.
+    this.jukebox = this.makeJukebox(this.viewW * 0.46, this.viewH * 0.92);
+
     // Bartender (Marv) behind the bar.
     const marv = this.add.image(this.viewW / 2, BAR_Y + this.viewH * 0.01, 'bartender_marv').setOrigin(0.5, 1);
     const marvScale = (this.viewH * 0.20) / marv.height;
@@ -198,6 +204,61 @@ export class BarScene extends Phaser.Scene {
       delay: 3500,
       loop: true,
       callback: () => this.chatTick(),
+    });
+  }
+
+  /**
+   * Build a small upright jukebox at (x, y) where (x, y) anchors the
+   * BOTTOM-CENTER of the cabinet. Returns a Container holding a wood
+   * cabinet, an amber lit screen (kept on `this.jukeboxScreen` so it can
+   * flicker), and twin speaker grilles. Mid-shift, `shakeJukebox()`
+   * yelps the whole thing.
+   */
+  private makeJukebox(x: number, y: number): Phaser.GameObjects.Container {
+    const w = this.viewW * 0.07;
+    const h = this.viewH * 0.13;
+    const c = this.add.container(x, y);
+
+    // Cabinet body (anchored bottom-center → origin at half height up).
+    const cabinet = this.add.rectangle(0, -h / 2, w, h, 0x4a3220).setStrokeStyle(1, 0x1a120a);
+    // Domed top arch.
+    const top = this.add.rectangle(0, -h + 2, w * 0.85, h * 0.10, 0x6a4a2e).setStrokeStyle(1, 0x1a120a);
+    // Lit screen near the top of the cabinet.
+    const screen = this.add.rectangle(0, -h + h * 0.18, w * 0.7, h * 0.16, 0xb88a4a).setStrokeStyle(1, 0x1a120a);
+    // Speaker grilles — two stacked dark slats below the screen.
+    const grille1 = this.add.rectangle(0, -h + h * 0.45, w * 0.7, h * 0.10, 0x261a10);
+    const grille2 = this.add.rectangle(0, -h + h * 0.60, w * 0.7, h * 0.10, 0x261a10);
+    // Coin slot on the right side.
+    const slot = this.add.rectangle(w * 0.32, -h + h * 0.30, 2, h * 0.05, 0x1a120a);
+
+    c.add([cabinet, top, screen, grille1, grille2, slot]);
+
+    // Slow flicker on the lit screen.
+    this.tweens.add({
+      targets: screen,
+      alpha: { from: 1, to: 0.55 },
+      duration: 70,
+      yoyo: true,
+      repeatDelay: 4000,
+      repeat: -1,
+      ease: 'Steps(2)',
+    });
+    return c;
+  }
+
+  private shakeJukebox() {
+    if (!this.jukebox) return;
+    const baseX = this.jukebox.x;
+    this.tweens.add({
+      targets: this.jukebox,
+      x: { from: baseX - 3, to: baseX + 3 },
+      duration: 60,
+      yoyo: true,
+      repeat: 4,
+      ease: 'Steps(1)',
+      onComplete: () => {
+        if (this.jukebox) this.jukebox.x = baseX;
+      },
     });
   }
 
@@ -255,6 +316,7 @@ export class BarScene extends Phaser.Scene {
         break;
       case 'Event':
         this.flashBanner(entry.text, '#d8a55c'); // tavern-whiskey
+        if (entry.text.toLowerCase().includes('jukebox')) this.shakeJukebox();
         break;
       case 'Note':
       case 'Wages':
